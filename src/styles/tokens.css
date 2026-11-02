@@ -1,0 +1,118 @@
+/* Сфери · Spheres — design tokens v1.
+   Light is default; dark via [data-theme="dark"], or the system when no data-theme is set.
+   Domains (10, see CHANGES.md): sleep body mood relationships work growth leisure money home nature.
+   Domain triplets: --d-<id> = graphic on bg/surface (≥3:1) · -soft = card tint · -ink = text & glyphs on the tint (≥4.5:1). */
+:root {
+  color-scheme: light;
+  --font-ui: "Manrope", "Segoe UI", system-ui, sans-serif;
+  --font-entry: "Lora", Georgia, "Times New Roman", serif;
+
+  --bg: oklch(0.962 0.014 80);
+  --bg-sunk: oklch(0.928 0.018 78);
+  --surface: oklch(0.986 0.007 85);
+  --ink: oklch(0.28 0.02 55);
+  --ink-2: oklch(0.47 0.02 55);
+  --ink-3: oklch(0.68 0.02 60);      /* decorative only */
+  --line: oklch(0.88 0.015 75);
+  --accent: oklch(0.5 0.115 42);
+  --on-accent: oklch(0.986 0.007 85);
+  --accent-ink: oklch(0.48 0.115 42);
+  --accent-soft: oklch(0.915 0.04 55);
+  --focus: oklch(0.5 0.115 42);
+  --scrim: oklch(0.2 0.02 55 / 0.42);
+  --desk: oklch(0.9 0.018 75);
+
+  --d-sleep: oklch(0.58 0.07 275);    --d-sleep-soft: oklch(0.93 0.025 275);    --d-sleep-ink: oklch(0.42 0.07 275);
+  --d-body: oklch(0.6 0.06 160);      --d-body-soft: oklch(0.93 0.022 160);     --d-body-ink: oklch(0.42 0.055 160);
+  --d-mood: oklch(0.6 0.08 325);      --d-mood-soft: oklch(0.93 0.025 325);     --d-mood-ink: oklch(0.43 0.08 325);
+  --d-relationships: oklch(0.6 0.085 5);--d-relationships-soft: oklch(0.93 0.025 5);--d-relationships-ink: oklch(0.44 0.085 5);
+  --d-work: oklch(0.58 0.06 240);     --d-work-soft: oklch(0.93 0.02 240);      --d-work-ink: oklch(0.42 0.06 240);
+  --d-growth: oklch(0.58 0.06 200);   --d-growth-soft: oklch(0.93 0.022 200);   --d-growth-ink: oklch(0.41 0.06 200);
+  --d-leisure: oklch(0.62 0.1 72);    --d-leisure-soft: oklch(0.935 0.04 78);   --d-leisure-ink: oklch(0.45 0.08 68);
+  --d-money: oklch(0.6 0.08 100);     --d-money-soft: oklch(0.93 0.03 100);     --d-money-ink: oklch(0.42 0.07 100);
+  --d-home: oklch(0.6 0.095 40);      --d-home-soft: oklch(0.93 0.03 42);       --d-home-ink: oklch(0.44 0.09 38);
+  --d-nature: oklch(0.6 0.085 130);   --d-nature-soft: oklch(0.93 0.03 130);    --d-nature-ink: oklch(0.42 0.075 130);
+
+  /* mood 1 (важкий день) → 5 (чудово): always paired with a face or number */
+  --mood-1: oklch(0.58 0.05 285); --mood-1-soft: oklch(0.905 0.03 285);
+  --mood-2: oklch(0.6 0.05 240);  --mood-2-soft: oklch(0.91 0.025 240);
+  --mood-3: oklch(0.62 0.03 85);  --mood-3-soft: oklch(0.915 0.025 85);
+  --mood-4: oklch(0.64 0.09 75);  --mood-4-soft: oklch(0.915 0.05 80);
+  --mood-5: oklch(0.6 0.11 45);   --mood-5-soft: oklch(0.9 0.055 50);
+
+  --t-xs: 13px; --t-sm: 14px; --t-md: 16px; --t-lg: 18px; --t-xl: 22px; --t-2xl: 26px; --t-3xl: 30px;
+  --lh-tight: 1.15; --lh-body: 1.5;
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px; --s-6: 24px; --s-8: 32px; --s-10: 40px; --s-14: 56px;
+  --r-sm: 10px; --r-md: 14px; --r-card: 20px; --r-sheet: 28px; --r-pill: 999px;
+  --shadow-1: 0 10px 24px -16px oklch(0.35 0.05 55 / 0.4);
+  --shadow-2: 0 -12px 40px -16px oklch(0.3 0.05 55 / 0.35);
+
+  --tap: 44px;
+  --ease: cubic-bezier(0.3, 0.7, 0.3, 1);
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-1: 160ms; --dur-2: 280ms; --dur-3: 560ms;
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+
+  /* paper grain ≈3.5% */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .3 0 0 0 0 .22 0 0 0 0 .14 0 0 0 .9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.035'/%3E%3C/svg%3E");
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: oklch(0.205 0.012 60); --bg-sunk: oklch(0.17 0.01 60); --surface: oklch(0.255 0.014 60);
+  --ink: oklch(0.935 0.012 80); --ink-2: oklch(0.77 0.015 75); --ink-3: oklch(0.5 0.015 65); --line: oklch(0.34 0.015 60);
+  --accent: oklch(0.76 0.105 50); --on-accent: oklch(0.2 0.02 50); --accent-ink: oklch(0.8 0.1 52);
+  --accent-soft: oklch(0.33 0.05 45); --focus: oklch(0.8 0.1 52); --scrim: oklch(0.08 0.01 60 / 0.6); --desk: oklch(0.15 0.01 60);
+  --shadow-1: 0 10px 24px -16px oklch(0 0 0 / 0.7); --shadow-2: 0 -12px 40px -16px oklch(0 0 0 / 0.75);
+  --d-sleep: oklch(0.74 0.065 275);   --d-sleep-soft: oklch(0.31 0.035 275);    --d-sleep-ink: oklch(0.86 0.05 275);
+  --d-body: oklch(0.74 0.055 160);    --d-body-soft: oklch(0.31 0.03 160);      --d-body-ink: oklch(0.86 0.045 160);
+  --d-mood: oklch(0.74 0.075 325);    --d-mood-soft: oklch(0.31 0.035 325);     --d-mood-ink: oklch(0.86 0.055 325);
+  --d-relationships: oklch(0.74 0.075 5);--d-relationships-soft: oklch(0.31 0.035 5);--d-relationships-ink: oklch(0.86 0.055 5);
+  --d-work: oklch(0.74 0.055 240);    --d-work-soft: oklch(0.31 0.03 240);      --d-work-ink: oklch(0.86 0.045 240);
+  --d-growth: oklch(0.74 0.055 200);  --d-growth-soft: oklch(0.31 0.03 200);    --d-growth-ink: oklch(0.86 0.045 200);
+  --d-leisure: oklch(0.78 0.09 75);   --d-leisure-soft: oklch(0.32 0.04 72);    --d-leisure-ink: oklch(0.88 0.07 78);
+  --d-money: oklch(0.78 0.08 100);    --d-money-soft: oklch(0.31 0.035 100);    --d-money-ink: oklch(0.88 0.065 100);
+  --d-home: oklch(0.74 0.085 40);     --d-home-soft: oklch(0.31 0.035 40);      --d-home-ink: oklch(0.86 0.06 40);
+  --d-nature: oklch(0.76 0.08 130);   --d-nature-soft: oklch(0.31 0.035 130);   --d-nature-ink: oklch(0.87 0.065 130);
+  --mood-1: oklch(0.72 0.05 285); --mood-1-soft: oklch(0.34 0.04 285);
+  --mood-2: oklch(0.72 0.05 240); --mood-2-soft: oklch(0.34 0.035 240);
+  --mood-3: oklch(0.74 0.03 85);  --mood-3-soft: oklch(0.34 0.025 85);
+  --mood-4: oklch(0.78 0.09 78);  --mood-4-soft: oklch(0.36 0.05 75);
+  --mood-5: oklch(0.76 0.1 48);   --mood-5-soft: oklch(0.36 0.06 45);
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .95 0 0 0 0 .85 0 0 0 .9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.03'/%3E%3C/svg%3E");
+}
+
+/* Follow the system when the user hasn't picked a theme. Keep in sync with [data-theme="dark"]. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --bg: oklch(0.205 0.012 60); --bg-sunk: oklch(0.17 0.01 60); --surface: oklch(0.255 0.014 60);
+    --ink: oklch(0.935 0.012 80); --ink-2: oklch(0.77 0.015 75); --ink-3: oklch(0.5 0.015 65); --line: oklch(0.34 0.015 60);
+    --accent: oklch(0.76 0.105 50); --on-accent: oklch(0.2 0.02 50); --accent-ink: oklch(0.8 0.1 52);
+    --accent-soft: oklch(0.33 0.05 45); --focus: oklch(0.8 0.1 52); --scrim: oklch(0.08 0.01 60 / 0.6); --desk: oklch(0.15 0.01 60);
+    --shadow-1: 0 10px 24px -16px oklch(0 0 0 / 0.7); --shadow-2: 0 -12px 40px -16px oklch(0 0 0 / 0.75);
+    --d-sleep: oklch(0.74 0.065 275);   --d-sleep-soft: oklch(0.31 0.035 275);    --d-sleep-ink: oklch(0.86 0.05 275);
+    --d-body: oklch(0.74 0.055 160);    --d-body-soft: oklch(0.31 0.03 160);      --d-body-ink: oklch(0.86 0.045 160);
+    --d-mood: oklch(0.74 0.075 325);    --d-mood-soft: oklch(0.31 0.035 325);     --d-mood-ink: oklch(0.86 0.055 325);
+    --d-relationships: oklch(0.74 0.075 5);--d-relationships-soft: oklch(0.31 0.035 5);--d-relationships-ink: oklch(0.86 0.055 5);
+    --d-work: oklch(0.74 0.055 240);    --d-work-soft: oklch(0.31 0.03 240);      --d-work-ink: oklch(0.86 0.045 240);
+    --d-growth: oklch(0.74 0.055 200);  --d-growth-soft: oklch(0.31 0.03 200);    --d-growth-ink: oklch(0.86 0.045 200);
+    --d-leisure: oklch(0.78 0.09 75);   --d-leisure-soft: oklch(0.32 0.04 72);    --d-leisure-ink: oklch(0.88 0.07 78);
+    --d-money: oklch(0.78 0.08 100);    --d-money-soft: oklch(0.31 0.035 100);    --d-money-ink: oklch(0.88 0.065 100);
+    --d-home: oklch(0.74 0.085 40);     --d-home-soft: oklch(0.31 0.035 40);      --d-home-ink: oklch(0.86 0.06 40);
+    --d-nature: oklch(0.76 0.08 130);   --d-nature-soft: oklch(0.31 0.035 130);   --d-nature-ink: oklch(0.87 0.065 130);
+    --mood-1: oklch(0.72 0.05 285); --mood-1-soft: oklch(0.34 0.04 285);
+    --mood-2: oklch(0.72 0.05 240); --mood-2-soft: oklch(0.34 0.035 240);
+    --mood-3: oklch(0.74 0.03 85);  --mood-3-soft: oklch(0.34 0.025 85);
+    --mood-4: oklch(0.78 0.09 78);  --mood-4-soft: oklch(0.36 0.05 75);
+    --mood-5: oklch(0.76 0.1 48);   --mood-5-soft: oklch(0.36 0.06 45);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-1: 0ms; --dur-2: 0ms; --dur-3: 0ms; --spring: linear; }
+}
