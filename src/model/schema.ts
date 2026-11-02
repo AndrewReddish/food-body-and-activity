@@ -1,0 +1,112 @@
+import { z } from 'zod';
+
+/**
+ * Data contract v1 for «Тіло».
+ * Missing fields mean "not logged", never zero.
+ * Every read and write of IndexedDB and the data repo goes through these schemas.
+ */
+export const SCHEMA_VERSION = 1 as const;
+
+const DateKeyRe = /^\d{4}-\d{2}-\d{2}$/;
+const Id = z.string().regex(/^[a-z0-9-]{1,40}$/);
+
+/** How a food was weighed. Plan grams are always for raw food. */
+export const METHODS = ['raw', 'boiled', 'baked', 'fried'] as const;
+export const MethodSchema = z.enum(METHODS);
+
+/** Food type that decides the raw → cooked weight change (see cooking.ts). */
+export const COOK_TYPES = [
+  'none', 'eggs', 'meat', 'poultry', 'offal', 'fish', 'seafood',
+  'rice', 'grain', 'pasta', 'legumes', 'potato', 'vegetables', 'mushrooms',
+] as const;
+export const CookTypeSchema = z.enum(COOK_TYPES);
+
+export const PlanGroupSchema = z.object({
+  id: Id,
+  letter: z.string().min(1).max(3),
+  labelUk: z.string().min(1).max(60),
+  labelEn: z.string().min(1).max(60),
+  /** The coach's "~ kcal" for the whole group (100%). */
+  kcal: z.number().min(0).max(5000),
+  /** Palette id from tokens.css (`--d-<palette>`). */
+  palette: z.string().min(1).max(40),
+  order: z.number().int(),
+});
+
+export const PlanItemSchema = z.object({
+  id: Id,
+  group: Id,
+  nameUk: z.string().min(1).max(80),
+  nameEn: z.string().min(1).max(80),
+  /** 100% of the group, in raw weight (g) or pieces. */
+  max: z.number().positive().max(10000),
+  unit: z.enum(['g', 'pcs']),
+  cook: CookTypeSchema,
+  /** Protein at `max`, grams (estimate from a raw-food reference table). */
+  protein: z.number().min(0).max(1000),
+  order: z.number().int(),
+  active: z.boolean(),
+  note: z.string().max(120).optional(),
+});
+
+export const PlanSchema = z.object({
+  schemaVersion: z.literal(SCHEMA_VERSION),
+  kcalTarget: z.number().int().min(0).max(10000),
+  macros: z.object({ protein: z.number(), fat: z.number(), carbs: z.number() }).optional(),
+  stepsGoal: z.number().int().min(0).max(100000),
+  groups: z.array(PlanGroupSchema),
+  items: z.array(PlanItemSchema),
+  updatedAt: z.string(),
+});
+
+export const FoodLogSchema = z.object({
+  id: z.string().min(1).max(40),
+  item: Id,
+  group: Id,
+  method: MethodSchema,
+  /** What the scale showed, in the item's unit, in the chosen state. */
+  weighed: z.number().min(0).max(100000),
+  /** Raw-equivalent amount — the number the plan counts. */
+  raw: z.number().min(0).max(100000),
+  /** Share of the group used, 0..n (1 = the whole group). Snapshot, so plan edits don't rewrite history. */
+  frac: z.number().min(0).max(100),
+  kcal: z.number().min(0),
+  protein: z.number().min(0),
+  at: z.string(),
+});
+
+export const DayLogSchema = z.object({
+  schemaVersion: z.literal(SCHEMA_VERSION),
+  date: z.string().regex(DateKeyRe),
+  food: z.array(FoodLogSchema),
+  steps: z.number().int().min(0).max(200000).optional(),
+  /** Coffee/tea cups (limit 4, first half of the day). */
+  cups: z.number().int().min(0).max(30).optional(),
+  /** Zero-calorie soda, ml (limit 330). */
+  soda: z.number().int().min(0).max(10000).optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export const MEASURE_FIELDS = ['weight', 'waist', 'hips', 'chest', 'arm', 'thigh'] as const;
+const Cm = z.number().positive().max(400);
+
+export const MeasureSchema = z.object({
+  schemaVersion: z.literal(SCHEMA_VERSION),
+  date: z.string().regex(DateKeyRe),
+  weight: z.number().positive().max(500).optional(),
+  waist: Cm.optional(),
+  hips: Cm.optional(),
+  chest: Cm.optional(),
+  arm: Cm.optional(),
+  thigh: Cm.optional(),
+  /** Photo ids; files live at `photos/<id>.jpg`. */
+  photos: z.array(z.string().regex(/^[\w-]{1,60}$/)).max(12).optional(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+/** `days/YYYY-MM.json` → `{ "YYYY-MM-DD": DayLog }`. */
+export const DaysFileSchema = z.record(z.string().regex(DateKeyRe), DayLogSchema);
+/** `measures/YYYY.json` → `{ "YYYY-MM-DD": Measure }`. */
+export const MeasuresFileSchema = z.record(z.string().regex(DateKeyRe), MeasureSchema);
