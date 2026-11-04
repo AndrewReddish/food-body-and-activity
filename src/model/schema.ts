@@ -49,6 +49,25 @@ export const PlanItemSchema = z.object({
   note: z.string().max(120).optional(),
 });
 
+export const DISH_KINDS = ['breakfast', 'main', 'salad', 'dessert', 'snack'] as const;
+
+/** One ingredient slot of a dish: a group plus the foods that may fill it, in order of preference. */
+export const DishPartSchema = z.object({
+  group: Id,
+  items: z.array(Id).min(1).max(20),
+  method: MethodSchema.optional(),
+  /** Share of this meal's portion of the group (default 1 = all of it). */
+  weight: z.number().min(0.05).max(1).optional(),
+});
+
+export const DishSchema = z.object({
+  id: Id,
+  nameUk: z.string().min(1).max(80),
+  nameEn: z.string().min(1).max(80),
+  kind: z.enum(DISH_KINDS),
+  parts: z.array(DishPartSchema).min(1).max(8),
+});
+
 export const PlanSchema = z.object({
   schemaVersion: z.literal(SCHEMA_VERSION),
   kcalTarget: z.number().int().min(0).max(10000),
@@ -56,6 +75,10 @@ export const PlanSchema = z.object({
   stepsGoal: z.number().int().min(0).max(100000),
   groups: z.array(PlanGroupSchema),
   items: z.array(PlanItemSchema),
+  /** The user's own dish ideas (built-in ones live in code). */
+  dishes: z.array(DishSchema).max(100).optional(),
+  /** Built-in dish ids the user switched off. */
+  hiddenDishes: z.array(Id).max(200).optional(),
   updatedAt: z.string(),
 });
 

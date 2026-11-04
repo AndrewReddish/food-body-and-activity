@@ -123,7 +123,12 @@ export function LogSheet({ item, group, food, editing, initialMethod, onSave, on
           <GroupChip group={group} size={40} />
           <div style="flex:1;display:grid;gap:2px;min-width:0">
             <h2 class="sf-h2" id="log-title" style="line-height:1.2">{itemName(item, lang)}</h2>
-            <span class="sf-meta">{t('log.recommend', { max: fmt(item.max, lang), unit: u })}{item.note ? ` · ${item.note}` : ''}</span>
+            <span class="sf-meta">
+              {used > 0
+                ? t('log.left', { left: fmt(roundAmount(remainingWeighed(item, 'raw', used), item.unit), lang), max: fmt(item.max, lang), unit: u })
+                : t('log.recommend', { max: fmt(item.max, lang), unit: u })}
+              {item.note ? ` · ${item.note}` : ''}
+            </span>
           </div>
           <IconButton icon="close" label={t('common.close')} tone="sunk" size={22} onClick={close} />
         </div>

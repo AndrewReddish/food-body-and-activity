@@ -27,6 +27,16 @@ synced to a **private GitHub repo** used as the database.
 amount and converts the number on screen. kcal = group kcal × share; protein = item protein × share.
 Group share = Σ raw/max over its foods; "done" at ≥ 95%. The slider stops at what's left; typing more is flagged.
 
+## Dish ideas (`src/model/dishes.ts`)
+What's left of each group is split evenly over the meals still to come (1–4, default by time of day).
+A dish is a list of parts (group + preferred foods + optional cooking method + share). `buildDish` fills each
+part from the per-meal budget, rounding down (5 g steps, 1 g for small foods, whole pieces), falling back to the
+next food when one would be too small, and returns ready-to-save log rows. `suggest` ranks main dishes by how
+much of the budget they use (breakfasts first in the morning), adds a dessert/snack from what the main leaves,
+and rotates alternatives by `seed`. Logging a suggestion can't take any group over 100% (unit-tested).
+Built-in menu: `BUILTIN_DISHES`; the user's own dishes and hidden built-ins live in `plan.json`
+(`dishes`, `hiddenDishes`, optional fields).
+
 ## Sync
 - Writes **only** under `food/` (first user) or `users/<id>/food/` (others) of the shared data repo, plus the
   shared `profiles.json` at the root. `sync.ts` refuses any prefix not ending in `food/`.

@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 import type {
-  CookTypeSchema, DayLogSchema, FoodLogSchema, MeasureSchema, MethodSchema, PlanGroupSchema, PlanItemSchema, PlanSchema,
+  CookTypeSchema, DayLogSchema, DishPartSchema, DishSchema, FoodLogSchema, MeasureSchema, MethodSchema, PlanGroupSchema, PlanItemSchema, PlanSchema,
 } from './schema';
 
 export type DateKey = string; // YYYY-MM-DD
@@ -16,3 +16,6 @@ export type FoodLog = z.infer<typeof FoodLogSchema>;
 export type DayLog = z.infer<typeof DayLogSchema>;
 export type Measure = z.infer<typeof MeasureSchema>;
 export type MeasureField = 'weight' | 'waist' | 'hips' | 'chest' | 'arm' | 'thigh';
+export type Dish = z.infer<typeof DishSchema>;
+export type DishPart = z.infer<typeof DishPartSchema>;
+export type DishKind = Dish['kind'];
