@@ -9,7 +9,8 @@ import { go } from '../lib/router';
 import { sound } from '../lib/sound';
 import { getSettings, patchSettings } from '../storage/db';
 import { Button, Icon, IconButton, PetalRain, TabBar, domainVars } from '../components/ui';
-import { GroupChip, LogSheet, METHOD_ICON, OilSheet, Ring, RulesSheet, itemName, groupLabel, newId, pct } from '../components/food';
+import { DishIdeas } from '../components/dishes';
+import { Bar, GroupChip, LogSheet, METHOD_ICON, OilSheet, Ring, RulesSheet, itemName, groupLabel, newId, pct } from '../components/food';
 
 /** Oil lives in group г (id 'g') in the coach's plan; fall back to any item called "oil". */
 const OIL_ID = 'oil';
@@ -21,7 +22,8 @@ export function Ration({ date: dateParam }: { date?: DateKey }) {
   const date = dateParam && dateParam <= today ? dateParam : today;
   const { day, update } = useDay(date);
   const { plan, groups, items } = usePlan();
-  const [open, setOpen] = useState<string | null>(null);
+  /** Started-but-unfinished groups are open by default; a tap overrides that per group. */
+  const [toggled, setToggled] = useState<Record<string, boolean>>({});
   const [log, setLog] = useState<{ item: PlanItem; editing?: FoodLog } | null>(null);
   const [oil, setOil] = useState(false);
   const [rules, setRules] = useState(false);
@@ -34,20 +36,27 @@ export function Ration({ date: dateParam }: { date?: DateKey }) {
   const nf = new Intl.NumberFormat(locale(lang));
   const groupOf = (id: string) => groups.find((g) => g.id === id)!;
   const isToday = date === today;
+  const isOpen = (id: string) => toggled[id] ?? ((use[id] ?? 0) > 0 && (use[id] ?? 0) < DONE_AT);
 
-  const save = (entry: FoodLog) => {
+  /** Add or replace log rows (one food from the sheet, or every ingredient of a dish idea). */
+  const saveMany = (entries: FoodLog[]) => {
+    if (!entries.length) return;
     const before = summarize(day, plan).groupsDone;
-    const food = day.food.some((f) => f.id === entry.id) ? day.food.map((f) => (f.id === entry.id ? entry : f)) : [...day.food, entry];
+    let food = day.food;
+    for (const entry of entries) food = food.some((f) => f.id === entry.id) ? food.map((f) => (f.id === entry.id ? entry : f)) : [...food, entry];
     update({ food });
     const after = summarize({ food }, plan);
-    const g = groupUse(food)[entry.group] ?? 0;
-    sound(after.groupsDone === after.groupsTotal && before < after.groupsTotal ? 'saved' : 'bloom', Math.max(1, Math.min(5, Math.ceil(g * 5))));
-    if (after.groupsDone === after.groupsTotal && before < after.groupsTotal) setCelebrate(true);
-    const next = { ...lastMethod, [entry.item]: entry.method };
+    const g = groupUse(food)[entries[0].group] ?? 0;
+    const allDone = after.groupsDone === after.groupsTotal && before < after.groupsTotal;
+    sound(allDone ? 'saved' : 'bloom', Math.max(1, Math.min(5, Math.ceil(g * 5))));
+    if (allDone) setCelebrate(true);
+    const next = { ...lastMethod, ...Object.fromEntries(entries.map((e) => [e.item, e.method])) };
     setLastMethod(next);
     void patchSettings({ lastMethod: next });
-    if (entry.method === 'fried' && entry.group !== items.find((i) => i.id === OIL_ID)?.group) setOil(true);
+    const oilGroup = items.find((i) => i.id === OIL_ID)?.group;
+    if (entries.some((e) => e.method === 'fried' && e.group !== oilGroup) && !entries.some((e) => e.group === oilGroup)) setOil(true);
   };
+  const save = (entry: FoodLog) => saveMany([entry]);
   const remove = (id: string) => update({ food: day.food.filter((f) => f.id !== id) });
 
   const addOil = (grams: number) => {
@@ -75,11 +84,13 @@ export function Ration({ date: dateParam }: { date?: DateKey }) {
         </div>
         <p class="sf-meta ration-hint"><Icon name="leaf" size={16} />{t('ration.rawHint')}</p>
 
+        {day.food.length > 0 && <DishIdeas plan={plan} food={day.food} isToday={isToday} onLog={saveMany} />}
+
         {groups.map((g) => (
           <GroupCard
             group={g} items={items.filter((i) => i.group === g.id && i.active)} used={use[g.id] ?? 0}
-            logs={day.food.filter((f) => f.group === g.id)} open={open === g.id}
-            onToggle={() => { sound(open === g.id ? 'chipOff' : 'chipOn'); setOpen(open === g.id ? null : g.id); }}
+            logs={day.food.filter((f) => f.group === g.id)} open={isOpen(g.id)}
+            onToggle={() => { sound(isOpen(g.id) ? 'chipOff' : 'chipOn'); setToggled({ ...toggled, [g.id]: !isOpen(g.id) }); }}
             onPick={(item) => setLog({ item })}
             onEdit={(f) => { const item = items.find((i) => i.id === f.item); if (item) setLog({ item, editing: f }); }}
           />
@@ -119,7 +130,10 @@ function GroupCard({ group, items, used, logs, open, onToggle, onPick, onEdit }:
   const over = used > 1.005;
   const nf = new Intl.NumberFormat(locale(lang), { maximumFractionDigits: 1 });
   const names = new Map(items.map((i) => [i.id, i]));
-  const status = over ? t('ration.over', { pct: pct(used - 1) }) : done ? t('ration.done') : used > 0 ? t('ration.left', { pct: 100 - pct(used) }) : t('ration.kcalGroup', { n: group.kcal });
+  const example = items[0];
+  const status = over ? t('ration.over', { pct: pct(used - 1) }) : done ? t('ration.done')
+    : used > 0 ? t('ration.left', { pct: 100 - pct(used) }) + (!open && example ? ` · ${t('ration.example', { item: itemName(example, lang).toLocaleLowerCase(), left: nf.format(roundAmount(remainingWeighed(example, 'raw', used), example.unit)), unit: t('unit.' + example.unit) })}` : '')
+    : t('ration.kcalGroup', { n: group.kcal });
   return (
     <section class={'gcard' + (open ? ' is-open' : '') + (done ? ' is-done' : '')} style={domainVars(group.palette)}>
       <button type="button" class="gcard__head" aria-expanded={open} onClick={onToggle}>
@@ -160,10 +174,13 @@ function GroupCard({ group, items, used, logs, open, onToggle, onPick, onEdit }:
             const left = roundAmount(remainingWeighed(i, 'raw', used), i.unit);
             const u = t('unit.' + i.unit);
             return (
-              <button type="button" class="gcard__item sf-press" onClick={() => onPick(i)}>
+              <button type="button" class={'gcard__item sf-press' + (left <= 0 ? ' is-empty' : '')} onClick={() => onPick(i)}>
                 <span class="sf-row__main">
                   <span class="gcard__logname">{itemName(i, lang)}</span>
-                  <span class="sf-row__sub">{used > 0 && left > 0 ? t('ration.itemLeft', { left: nf.format(left), max: nf.format(i.max), unit: u }) : t('ration.itemMax', { max: nf.format(i.max), unit: u })}{i.note ? ` · ${i.note}` : ''}</span>
+                  <span class="gcard__left">
+                    <span class="sf-row__sub">{t('ration.itemLeft', { left: nf.format(left), max: nf.format(i.max), unit: u })}{i.note ? ` · ${i.note}` : ''}</span>
+                    <Bar value={Math.max(0, 1 - used)} color="var(--c)" />
+                  </span>
                 </span>
                 <Icon name="plus" size={20} />
               </button>

@@ -3,6 +3,8 @@ import type { Plan, PlanItem } from '../model/types';
 import { COOK_TYPES, PlanSchema } from '../model/schema';
 import { defaultPlan } from '../model/defaults';
 import { YIELDS } from '../model/cooking';
+import { BUILTIN_DISHES } from '../model/dishes';
+import { DishesSheet } from '../components/dishEditor';
 import { useLang, useT, locale, type Lang } from '../i18n/t';
 import { usePlan } from '../lib/usePlan';
 import { nowIso, todayKey } from '../lib/dates';
@@ -29,7 +31,7 @@ export function Settings({ theme, setTheme, setLang, toast }: {
   const { plan, groups, items, save } = usePlan();
   const [status, setStatus] = useState<SyncStatus>(getSyncStatus());
   const [settings, setSettings] = useState<LocalSettings | null>(null);
-  const [sheet, setSheet] = useState<'token' | 'plan' | null>(null);
+  const [sheet, setSheet] = useState<'token' | 'plan' | 'dishes' | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const planRef = useRef<HTMLInputElement>(null);
   const { active, switchTo, rename } = useProfiles();
@@ -124,6 +126,14 @@ export function Settings({ theme, setTheme, setLang, toast }: {
             </span>
             <Icon name="chevron-right" size={20} class="sf-row__chev" />
           </button>
+          <button type="button" class="sf-row sf-row--tall" onClick={() => setSheet('dishes')}>
+            <Icon name="leaf" size={22} />
+            <span class="sf-row__main">
+              <span class="sf-row__title sf-row__title--accent">{t('dishes.title')}</span>
+              <span class="sf-row__sub">{t('dishes.sub', { n: BUILTIN_DISHES.length - (plan.hiddenDishes?.length ?? 0) + (plan.dishes?.length ?? 0) })}</span>
+            </span>
+            <Icon name="chevron-right" size={20} class="sf-row__chev" />
+          </button>
         </div>
 
         <h2 class="sf-section">{t('profiles.section')}</h2>
@@ -193,6 +203,7 @@ export function Settings({ theme, setTheme, setLang, toast }: {
       <TabBar active="settings" />
 
       {sheet === 'token' && settings && <TokenSheet settings={settings} onClose={() => setSheet(null)} />}
+      {sheet === 'dishes' && <DishesSheet plan={plan} save={save} onClose={() => setSheet(null)} />}
       {sheet === 'plan' && (
         <PlanSheet plan={plan} save={save} onClose={() => setSheet(null)}
           onExport={() => void shareFile(`tilo-plan-${todayKey()}.json`, 'application/json', JSON.stringify(plan, null, 2))}

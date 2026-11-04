@@ -13,6 +13,7 @@ import { db } from '../storage/db';
 import { Button, Icon, IconButton, TabBar, domainVars } from '../components/ui';
 import { Bar, DayStrip, Ring, pct } from '../components/food';
 import { StepsSheet } from './Steps';
+import { firstIdeaName } from '../components/dishes';
 import { Avatar, ProfileSheet } from '../components/profiles';
 import { useProfiles } from '../lib/profile';
 
@@ -59,6 +60,7 @@ export function Today({ date: dateParam }: { date?: DateKey }) {
   const left = groups.filter((g) => (sum.use[g.id] ?? 0) < 0.95);
   const hour = new Date().getHours();
   const nf = new Intl.NumberFormat(locale(lang));
+  const idea = day.food.length ? firstIdeaName(plan, day.food, isToday ? hour : 20, lang) : undefined;
 
   return (
     <>
@@ -107,6 +109,17 @@ export function Today({ date: dateParam }: { date?: DateKey }) {
           <div class="sf-banner is-warn" role="status"><Icon name="info" />
             <span>{t('home.over', { letters: sum.over.map((id) => groups.find((g) => g.id === id)?.letter).join(', ') })}</span>
           </div>
+        )}
+
+        {idea && (
+          <a class="sf-card more-card sf-press" href={'#/ration' + (isToday ? '' : '/' + date)} style="text-decoration:none">
+            <span class="sf-dchip" style="background:var(--accent-soft);color:var(--accent-ink)"><Icon name="ration" size={22} /></span>
+            <span style="flex:1;display:grid;gap:2px;min-width:0">
+              <span class="sf-label">{t('ideas.home')}</span>
+              <span class="sf-meta">{idea}</span>
+            </span>
+            <Icon name="chevron-right" size={20} class="sf-row__chev" />
+          </a>
         )}
 
         {/* Steps */}

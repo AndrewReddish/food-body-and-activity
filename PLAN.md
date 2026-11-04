@@ -18,6 +18,7 @@ Rebuild of the old Telegram mini app («Наука та здоровий глу�
 - [x] Home, Ration (log sheet, oil prompt, rules), Steps, Measures (chart, photos, compare), Settings (plan editor)
 - [x] Sync to `food/` + photos; reuse of «Сфери»'s connection and users
 - [x] UA/EN, light/dark, motion and sounds
+- [x] v1.1: remaining amount of every food always visible (shrinks proportionally within the group); dish ideas sized to what's left, logged in one tap; built-in menu + own dishes
 - [ ] Real-device check on the iPhone; enable Pages for this repo
 - [ ] Workouts tab (old app: "0/3 тренувань цього тижня")
 
