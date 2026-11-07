@@ -20,6 +20,7 @@ function fakeStore() {
   const profiles = new Map<string, RemoteProfile>();
   const goals = new Map<string, RemoteGoals>();
   let goalsTable = true;
+  let formula: Record<string, unknown> | undefined;
   const table = (user: string, kind: string, profile: string) => {
     const k = `${user}/${kind}/${profile}`;
     if (!tables.has(k)) tables.set(k, new Map());
@@ -43,6 +44,7 @@ function fakeStore() {
     async getPhoto(profile, id) { return photos.get(`${user}/${profile}/${id}`); },
     async listProfiles() { return [...profiles.values()].map((p) => ({ ...p })); },
     async putProfiles(list) { for (const p of list) profiles.set(p.id, { ...p }); },
+    async getFormula() { return formula; },
     async getGoals(profile) { return goalsTable ? structuredClone(goals.get(`${user}/${profile}`)) : undefined; },
     async putGoals(profile, g) {
       if (!goalsTable) return;
@@ -54,7 +56,7 @@ function fakeStore() {
   /** What a dashboard edit does: change numbers, stamp now. */
   const ownerEdit = (user: string, profile: string, g: Omit<RemoteGoals, 'updatedAt'>) =>
     goals.set(`${user}/${profile}`, { ...g, updatedAt: new Date(clock += 1000).toISOString() });
-  return { forUser, table, photos, profiles, goals, ownerEdit, dropGoalsTable: () => { goalsTable = false; }, setClock: (iso: string) => { clock = Date.parse(iso); } };
+  return { forUser, table, photos, profiles, goals, ownerEdit, dropGoalsTable: () => { goalsTable = false; }, setFormula: (f: Record<string, unknown>) => { formula = f; }, setClock: (iso: string) => { clock = Date.parse(iso); } };
 }
 
 let i = 0;
@@ -277,3 +279,48 @@ describe('goals (kcal, protein, steps) in the goals table', () => {
     await reconcileGoals(target, db);
   });
 });
+
+describe('automatic targets', () => {
+  let remote: ReturnType<typeof fakeStore>;
+  let target: SyncTarget;
+  const year = new Date().getFullYear();
+  const body = { sex: 'f' as const, birthYear: year - 56, height: 165, weight: 95, activity: 'light' as const, goal: 'lose' as const, auto: true };
+  beforeEach(() => {
+    remote = fakeStore();
+    target = { store: remote.forUser('u1'), user: 'u1', profile: 'w' };
+  });
+
+  it('the owner fills in body data in the table; the app computes the targets and writes them back', async () => {
+    const db = freshDb();
+    await syncAll(target, db);
+    remote.setClock(new Date(Date.now() + 60_000).toISOString());
+    remote.ownerEdit('u1', 'w', { kcal: 2210, protein: 165, steps: 7000, body });
+    await syncAll(target, db);
+    const p = await getPlan(db);
+    expect(p.body).toMatchObject({ height: 165, auto: true });
+    expect([p.kcalTarget, p.macros?.protein, p.stepsGoal]).toEqual([1690, 125, 7000]);
+    expect(remote.goals.get('u1/w')).toMatchObject({ kcal: 1690, protein: 125, body: { height: 165 } });
+  });
+
+  it('a formula change recalculates on the next sync; a measured weight is used over the starting one', async () => {
+    const db = freshDb();
+    remote.setClock(new Date(Date.now() + 60_000).toISOString());
+    remote.ownerEdit('u1', 'w', { kcal: 2210, protein: 165, steps: 7000, body });
+    await syncAll(target, db);
+    remote.setFormula({ deficit_pct: 'ignored', deficitPct: '15' });
+    await syncAll(target, db);
+    expect((await getPlan(db)).kcalTarget).toBe(1800);
+    await putMeasure(measure('2026-11-07', '2026-11-07T08:00:00Z', { weight: 90 }), db);
+    await syncAll(target, db);
+    expect((await getPlan(db)).kcalTarget).toBeLessThan(1800);
+  });
+
+  it('auto off: the typed-in numbers stay', async () => {
+    const db = freshDb();
+    remote.setClock(new Date(Date.now() + 60_000).toISOString());
+    remote.ownerEdit('u1', 'w', { kcal: 1650, protein: 125, steps: 7000, body: { ...body, auto: false } });
+    await syncAll(target, db);
+    expect((await getPlan(db)).kcalTarget).toBe(1650);
+  });
+});
+

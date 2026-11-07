@@ -4,6 +4,8 @@ import { db as defaultDb, getPlan, getSettings, patchSettings, putPlan, PLAN_PAT
 import { pickNewer } from './merge';
 import { mergeProfiles, ProfileSchema, type Profile } from './profiles';
 import type { RecordKind, RemoteGoals, RemoteStore } from './remote';
+import { cleanFormula } from '../model/targets';
+import { normBody, putFormula, recomputeGoals, sameBody } from './goals';
 
 /**
  * Two-way sync of one app user's data with the remote store.
@@ -68,6 +70,7 @@ export async function reconcileGoals(t: SyncTarget, db = defaultDb): Promise<voi
   const plan = await getPlan(db);
   const local: RemoteGoals = {
     kcal: plan.kcalTarget, protein: Math.round(plan.macros?.protein ?? 0), steps: plan.stepsGoal,
+    body: normBody(plan.body),
     updatedAt: plan.goalsUpdatedAt ?? EPOCH,
   };
   const remote = await t.store.getGoals(t.profile);
@@ -75,13 +78,14 @@ export async function reconcileGoals(t: SyncTarget, db = defaultDb): Promise<voi
     await t.store.putGoals(t.profile, local);
     return;
   }
-  const same = remote.kcal === local.kcal && remote.protein === local.protein && remote.steps === local.steps;
+  const same = remote.kcal === local.kcal && remote.protein === local.protein && remote.steps === local.steps && sameBody(remote.body, local.body);
   if (after(remote.updatedAt, local.updatedAt) || !same) {
     await putPlan({
       ...plan,
       kcalTarget: remote.kcal,
       stepsGoal: remote.steps,
       macros: { protein: remote.protein, fat: plan.macros?.fat ?? 0, carbs: plan.macros?.carbs ?? 0 },
+      body: normBody(remote.body),
       goalsUpdatedAt: remote.updatedAt,
     }, { markDirty: false }, db);
   }
@@ -140,6 +144,10 @@ export async function syncAll(t: SyncTarget, db = defaultDb): Promise<void> {
   await pushDirty(t, db);
   await pullChanges(t, db);
   await reconcileGoals(t, db);
+  // Automatic targets: the owner may have changed the formula, the body data or the weight; re-derive and upload.
+  const f = await t.store.getFormula();
+  if (f) await putFormula(cleanFormula(f), db);
+  if (await recomputeGoals(db)) await pushDirty(t, db);
 }
 
 /** Mark everything on this device for upload — the first time an account is connected here. */

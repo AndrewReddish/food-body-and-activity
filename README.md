@@ -13,6 +13,9 @@ measurements. It works offline and syncs to your account in Supabase. Ukrainian 
 - **Ціль калорій масштабує план**: the coach's amounts are written for 2210 kcal. Set another calorie goal (in
   Опції or in the `goals` table) and every group's amounts and protein scale to it; vegetables and nuts stay
   as written by default (`src/model/scale.ts`).
+- **Автоматичні цілі**: from sex, age, height, weight (latest measurement) and a goal (lose / maintain / gain),
+  kcal, protein and steps are computed (Mifflin–St Jeor, `src/model/targets.ts`). The coefficients live in the
+  Supabase `formula` table, so the owner can tune them; see [docs/ADMIN.md](docs/ADMIN.md) §5а.
 - **Кроки**: manual entry against a goal (7 000 by default), with a 7-day chart.
 - **Заміри**: weight, waist, hips, chest, arm, thigh and progress photos, with a weight trend and a side-by-side
   photo comparison.
@@ -49,7 +52,7 @@ sign in, synced to a Supabase project. Without Supabase settings the app works l
 
 One-time Supabase setup:
 1. **Database.** In the Supabase SQL editor, run [`supabase/migrations/0001_tilo.sql`](supabase/migrations/0001_tilo.sql)
-   and then [`0002_goals.sql`](supabase/migrations/0002_goals.sql) (or `supabase db push`). They create the
+   then [`0002_goals.sql`](supabase/migrations/0002_goals.sql) and [`0003_auto_targets.sql`](supabase/migrations/0003_auto_targets.sql) (or `supabase db push`). They create the
    `profiles`, `plans`, `days`, `measures` and `goals` tables with row-level security (each account sees only its
    own rows), a private `photos` storage bucket, and an owner-only `admin.goals_overview`. Daily goals (kcal,
    protein, steps) are editable in Table Editor → `goals`; see [docs/ADMIN.md](docs/ADMIN.md).

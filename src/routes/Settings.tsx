@@ -17,6 +17,7 @@ import { MIN_PASSWORD, authErrorKey, currentUser, isRemoteConfigured, setPasswor
 import { SignInForm } from '../components/account';
 import { Button, Icon, IconButton, Segmented, Sheet, TabBar, TextField, Toggle } from '../components/ui';
 import { GroupChip, groupLabel, itemName, newId } from '../components/food';
+import { BodySection } from '../components/body';
 import { AddProfileForm, ProfileList } from '../components/profiles';
 import { useProfiles } from '../lib/profile';
 import { isSoundEnabled, setSoundEnabled, sound } from '../lib/sound';
@@ -30,6 +31,7 @@ export function Settings({ theme, setTheme, setLang, toast }: {
   const lang = useLang();
   const { base: plan, plan: scaled, groups, items, save } = usePlan();
   const k = scaleFactor(plan);
+  const auto = !!plan.body?.auto;
   const [status, setStatus] = useState<SyncStatus>(getSyncStatus());
   const [sheet, setSheet] = useState<'account' | 'plan' | 'dishes' | null>(null);
   const [email, setEmail] = useState<string | null>(null);
@@ -99,25 +101,29 @@ export function Settings({ theme, setTheme, setLang, toast }: {
       <main class="screen" style="gap:8px">
         <h1 class="sf-title" style="padding-top:10px">{t('settings.title')}</h1>
 
+        <h2 class="sf-section">{t('body.title')}</h2>
+        <BodySection plan={plan} save={save} />
+
         <h2 class="sf-section">{t('settings.plan')}</h2>
         <div class="sf-list">
           <div class="sf-row">
             <Icon name="flame" size={22} />
             <label class="sf-row__title" style="flex:1" for="kcal">{t('settings.kcal')}</label>
-            <input id="kcal" class="sf-input sf-input--ui settings-num" inputMode="numeric" value={plan.kcalTarget}
+            <input id="kcal" disabled={auto} style={auto ? 'opacity:.55' : ''} class="sf-input sf-input--ui settings-num" inputMode="numeric" value={plan.kcalTarget}
               onChange={(e) => void save({ ...plan, kcalTarget: num((e.currentTarget as HTMLInputElement).value, plan.kcalTarget), goalsUpdatedAt: nowIso() })} />
           </div>
+          {auto && <p class="sf-meta" style="padding:0 16px 8px">{t('body.autoOn')}</p>}
           {k !== 1 && <p class="sf-meta" style="padding:0 16px 8px">{t('settings.scaled', { pct: Math.round(k * 100), base: planKcalOf(plan) })}</p>}
           <div class="sf-row">
             <Icon name="protein" size={22} />
             <label class="sf-row__title" style="flex:1" for="protein">{t('settings.protein')}</label>
-            <input id="protein" class="sf-input sf-input--ui settings-num" inputMode="numeric" value={plan.macros?.protein ?? ''}
+            <input id="protein" disabled={auto} style={auto ? 'opacity:.55' : ''} class="sf-input sf-input--ui settings-num" inputMode="numeric" value={plan.macros?.protein ?? ''}
               onChange={(e) => void save({ ...plan, macros: { protein: num((e.currentTarget as HTMLInputElement).value, 0), fat: plan.macros?.fat ?? 0, carbs: plan.macros?.carbs ?? 0 }, goalsUpdatedAt: nowIso() })} />
           </div>
           <div class="sf-row">
             <Icon name="steps" size={22} />
             <label class="sf-row__title" style="flex:1" for="goal">{t('settings.stepsGoal')}</label>
-            <input id="goal" class="sf-input sf-input--ui settings-num" inputMode="numeric" value={plan.stepsGoal}
+            <input id="goal" disabled={auto} style={auto ? 'opacity:.55' : ''} class="sf-input sf-input--ui settings-num" inputMode="numeric" value={plan.stepsGoal}
               onChange={(e) => void save({ ...plan, stepsGoal: num((e.currentTarget as HTMLInputElement).value, plan.stepsGoal), goalsUpdatedAt: nowIso() })} />
           </div>
           <button type="button" class="sf-row sf-row--tall" onClick={() => setSheet('plan')}>

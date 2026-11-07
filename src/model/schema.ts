@@ -70,6 +70,21 @@ export const DishSchema = z.object({
   parts: z.array(DishPartSchema).min(1).max(8),
 });
 
+export const BodySchema = z.object({
+  sex: z.enum(['f', 'm']).optional(),
+  birthYear: z.number().int().min(1900).max(2100).optional(),
+  height: z.number().min(80).max(250).optional(),
+  weight: z.number().min(20).max(400).optional(),
+  activity: z.enum(['sedentary', 'light', 'moderate', 'active']).optional(),
+  goal: z.enum(['lose', 'maintain', 'gain']).optional(),
+  /** On: kcal, protein, steps and macros are computed; off: they are whatever was typed in. */
+  auto: z.boolean().optional(),
+  /** The owner's per-person tweak on top of the formula, kcal (e.g. −100 after the dietitian's feedback). */
+  kcalAdjust: z.number().int().min(-2000).max(2000).optional(),
+  /** Per-person protein, g per kg, instead of the formula's. */
+  proteinPerKg: z.number().min(0.5).max(4).optional(),
+});
+
 export const PlanSchema = z.object({
   schemaVersion: z.literal(SCHEMA_VERSION),
   kcalTarget: z.number().int().min(0).max(10000),
@@ -83,6 +98,11 @@ export const PlanSchema = z.object({
   dishes: z.array(DishSchema).max(100).optional(),
   /** Built-in dish ids the user switched off. */
   hiddenDishes: z.array(Id).max(200).optional(),
+  /**
+   * Body data and weight goal, for automatic targets (targets.ts). Also columns in the `goals` table, so the
+   * owner can fill them in for a person. `weight` is used only until the first measured weight.
+   */
+  body: BodySchema.optional(),
   /** When kcalTarget / macros.protein / stepsGoal last changed (they also live in the `goals` table). */
   goalsUpdatedAt: z.string().optional(),
   updatedAt: z.string(),
