@@ -7,7 +7,8 @@ import { z } from 'zod';
  */
 export const ProfileSchema = z.object({
   id: z.string().regex(/^[a-z0-9-]{1,40}$/),
-  name: z.string().min(1).max(40),
+  /** Empty only for the first user until they type their name on first launch. */
+  name: z.string().max(40),
   color: z.string().min(1).max(40), // palette id from tokens.css
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -19,7 +20,7 @@ export const ProfilesFileSchema = z.object({ profiles: z.array(ProfileSchema) })
 export const DEFAULT_PROFILE_ID = 'me';
 export const DEFAULT_PROFILE: Profile = {
   id: DEFAULT_PROFILE_ID,
-  name: 'Андрій',
+  name: '',
   color: 'home',
   createdAt: '1970-01-01T00:00:00.000Z',
   updatedAt: '1970-01-01T00:00:00.000Z',
@@ -90,7 +91,8 @@ export function mergeProfiles(local: Profile[], remote: Profile[]): Profile[] {
   const byId = new Map(local.map((p) => [p.id, p]));
   for (const r of remote) {
     const l = byId.get(r.id);
-    if (!l || Date.parse(r.updatedAt) > Date.parse(l.updatedAt)) byId.set(r.id, r);
+    // A name from the account beats the unnamed first user of a fresh install.
+    if (!l || Date.parse(r.updatedAt) > Date.parse(l.updatedAt) || (!l.name && r.name)) byId.set(r.id, r);
   }
   return [...byId.values()];
 }

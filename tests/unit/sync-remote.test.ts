@@ -169,4 +169,11 @@ describe('remote sync', () => {
     expect(merged.map((p) => p.id).sort()).toEqual(['maks-1', 'me']);
     expect(remote.profiles.get('me')!.name).toBe('Олена');
   });
+
+  it('a fresh install takes the first user’s name from the account', async () => {
+    await remote.forUser('u1').putProfiles([{ id: 'me', name: 'Олена', color: 'home', createdAt: '1970-01-01T00:00:00Z', updatedAt: '1970-01-01T00:00:00Z' }]);
+    const merged = await syncProfiles(target.store, [DEFAULT_PROFILE]);
+    expect(DEFAULT_PROFILE.name).toBe('');
+    expect(merged.find((p) => p.id === 'me')!.name).toBe('Олена');
+  });
 });

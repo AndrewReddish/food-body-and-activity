@@ -12,7 +12,8 @@ import { allDays, allMeasures, db, getPlan, patchSettings, putDay, putMeasure, p
 import { foodCsv, parseBackup, shareFile, toBackup, toCsv } from '../storage/export';
 import { getSyncStatus, onSyncStatus, syncNow, type SyncStatus } from '../storage/sync';
 import { pickNewer } from '../storage/merge';
-import { currentUser, isRemoteConfigured, sendCode, signOut, verifyCode } from '../storage/supabase';
+import { currentUser, isRemoteConfigured, signOut } from '../storage/supabase';
+import { SignInForm } from '../components/account';
 import { Button, Icon, IconButton, Segmented, Sheet, TabBar, TextField, Toggle } from '../components/ui';
 import { GroupChip, groupLabel, itemName, newId } from '../components/food';
 import { AddProfileForm, ProfileList } from '../components/profiles';
@@ -213,30 +214,9 @@ export function Settings({ theme, setTheme, setLang, toast }: {
   );
 }
 
-/** Sign in with a 6-digit code from the email (works inside an installed iPhone app), or sign out. */
+/** Signed in: sync now or sign out. Signed out: the same email-code form as the first screen. */
 function AccountSheet({ email, syncLine, onClose }: { email: string | null; syncLine: string; onClose: () => void }) {
   const t = useT();
-  const [addr, setAddr] = useState('');
-  const [code, setCode] = useState('');
-  const [sentTo, setSentTo] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState('');
-
-  const attempt = async (fn: () => Promise<void>) => {
-    setBusy(true);
-    setErr('');
-    try {
-      await fn();
-    } catch (e) {
-      setErr(t('account.error', { msg: e instanceof Error ? e.message : String(e) }));
-    } finally {
-      setBusy(false);
-    }
-  };
-  const send = () => attempt(async () => { await sendCode(addr.trim()); setSentTo(addr.trim()); setCode(''); });
-  const verify = () => attempt(async () => { await verifyCode(sentTo, code.trim()); sound('saved'); void syncNow(); onClose(); });
-  const leave = () => attempt(async () => { await signOut(); onClose(); });
-
   return (
     <Sheet onClose={onClose} labelledBy="account-title">
       {(close) => (<>
@@ -248,28 +228,14 @@ function AccountSheet({ email, syncLine, onClose }: { email: string | null; sync
         {email ? (<>
           <p class="sf-meta">{t('account.signedIn', { email })}</p>
           <p class="sf-meta">{syncLine}</p>
-          {err && <div class="sf-banner" role="alert">{err}</div>}
           <div class="sf-sheet__actions">
-            <Button block icon="sync" disabled={busy} onClick={() => { void syncNow(); close(); }}>{t('settings.syncNow')}</Button>
-            <Button variant="ghost" disabled={busy} onClick={() => void leave()}>{t('account.signOut')}</Button>
+            <Button block icon="sync" onClick={() => { void syncNow(); close(); }}>{t('settings.syncNow')}</Button>
+            <Button variant="ghost" onClick={() => void signOut().then(onClose)}>{t('account.signOut')}</Button>
           </div>
           <p class="sf-meta">{t('account.signOut.hint')}</p>
-        </>) : sentTo ? (<>
-          <p class="sf-meta">{t('account.codeSent', { email: sentTo })}</p>
-          <TextField id="otp" ui label={t('account.code')} placeholder="123456" value={code} onInput={(v) => setCode(v.replace(/\D/g, '').slice(0, 10))} />
-          <p class="sf-meta">{t('account.linkHint')}</p>
-          {err && <div class="sf-banner" role="alert">{err}</div>}
-          <div class="sf-sheet__actions">
-            <Button block icon="check" disabled={busy || code.length < 6} onClick={() => void verify()}>{t('account.signIn')}</Button>
-            <Button variant="ghost" disabled={busy} onClick={() => { setSentTo(''); setErr(''); }}>{t('account.otherEmail')}</Button>
-          </div>
         </>) : (<>
           <p class="sf-meta">{t('account.hint')}</p>
-          <TextField id="email" ui label={t('account.email')} placeholder="you@example.com" value={addr} onInput={setAddr} />
-          {err && <div class="sf-banner" role="alert">{err}</div>}
-          <div class="sf-sheet__actions">
-            <Button block icon="chevron-right" disabled={busy || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr.trim())} onClick={() => void send()}>{t('account.sendCode')}</Button>
-          </div>
+          <SignInForm onSignedIn={() => { void syncNow(); onClose(); }} />
         </>)}
       </>)}
     </Sheet>

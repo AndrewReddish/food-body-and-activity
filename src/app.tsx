@@ -4,7 +4,8 @@ import { useRoute } from './lib/router';
 import { nowIso } from './lib/dates';
 import { ProfileContext, type ProfileCtx } from './lib/profile';
 import { getSettings, patchSettings, type LocalSettings } from './storage/db';
-import { initSync } from './storage/sync';
+import { initSync, syncNow } from './storage/sync';
+import { currentUser, isRemoteConfigured, onAuthChange } from './storage/supabase';
 import { setSoundEnabled, sound } from './lib/sound';
 import { hasChosen, listProfiles, newProfileId, putProfile, setActiveId, type Profile } from './storage/profiles';
 import { openActiveProfile, switchProfile } from './storage/session';
@@ -14,7 +15,8 @@ import { Steps } from './routes/Steps';
 import { Measures } from './routes/Measures';
 import { Settings } from './routes/Settings';
 import { InstallHint } from './components/InstallHint';
-import { ProfilePicker } from './components/profiles';
+import { NameStep, ProfilePicker } from './components/profiles';
+import { Welcome } from './components/account';
 
 type Theme = LocalSettings['theme'];
 
@@ -28,6 +30,8 @@ export function App() {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [activeId, setActiveIdState] = useState('');
   const [chosen, setChosen] = useState(true);
+  /** Sync configured and nobody signed in on this device → the sign-up / sign-in screen comes first. */
+  const [needAuth, setNeedAuth] = useState(false);
 
   const loadSettings = useCallback(async () => {
     const s = await getSettings();
@@ -43,6 +47,7 @@ export function App() {
       setActiveIdState(id);
       setProfiles(await listProfiles());
       setChosen(await hasChosen());
+      setNeedAuth(isRemoteConfigured() && !(await currentUser()));
       const s = await loadSettings();
       const standalone = matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone;
       setShowHint(!standalone && !s.installHintSeen && /iPhone|iPad|iPod/.test(navigator.userAgent));
@@ -51,7 +56,8 @@ export function App() {
     })();
     const reload = () => void listProfiles().then(setProfiles);
     window.addEventListener('tilo:profiles', reload);
-    return () => window.removeEventListener('tilo:profiles', reload);
+    const stopAuth = onAuthChange((u) => setNeedAuth(isRemoteConfigured() && !u));
+    return () => { window.removeEventListener('tilo:profiles', reload); stopAuth(); };
   }, []);
 
   useEffect(() => {
@@ -107,7 +113,20 @@ export function App() {
   return (
     <I18n.Provider value={ctx}>
       <ProfileContext.Provider value={profileCtx}>
-        {!chosen ? (
+        {needAuth ? (
+          <Welcome onSignedIn={async () => {
+            // Brings this account's users (and the first user's name) before deciding what to ask next.
+            await syncNow();
+            setProfiles(await listProfiles());
+            setNeedAuth(false);
+          }} />
+        ) : !chosen && !profiles.some((p) => p.name) || !profileCtx.active.name ? (
+          <NameStep onDone={async (name) => {
+            await profileCtx.rename(activeId, name);
+            await setActiveId(activeId);
+            setChosen(true);
+          }} />
+        ) : !chosen && profiles.length > 1 ? (
           <ProfilePicker
             onDone={async (id) => {
               await setActiveId(id);
@@ -127,7 +146,7 @@ export function App() {
             )}
           </div>
         )}
-        {chosen && showHint && <InstallHint onClose={() => { setShowHint(false); void patchSettings({ installHintSeen: true }); }} />}
+        {chosen && !needAuth && showHint && <InstallHint onClose={() => { setShowHint(false); void patchSettings({ installHintSeen: true }); }} />}
         {toast && <div class="toast" role="status">{toast}</div>}
       </ProfileContext.Provider>
     </I18n.Provider>

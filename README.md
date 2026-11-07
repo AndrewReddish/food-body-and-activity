@@ -51,7 +51,8 @@ One-time Supabase setup:
    `.env.local` with the same two values.
 5. **Pages.** Settings → Pages → Source: **GitHub Actions**.
 
-On the phone: Опції → Акаунт → enter your email → type the code from the email. The first sign-in on a device
-uploads everything already logged there, for every user on that phone.
+On the phone, the first screen is sign-up / sign-in: enter your email, then the code from the email (the same
+step creates the account the first time). Then the app asks for your name, or, on a new phone with an existing
+account, brings your users from it. The first sign-in on a device uploads everything already logged there.
 
 App link once deployed: https://andrewreddish.github.io/food-body-and-activity/
