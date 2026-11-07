@@ -101,6 +101,19 @@ export async function verifyLink(text: string): Promise<User> {
   throw new RemoteError('no user');
 }
 
+/**
+ * Opening the app from an email link of the form `<app>?token_hash=…&type=…` (see docs/ADMIN.md) signs in
+ * here. Such links point at the app, not at Supabase, so a mail scanner that "visits" them can't use them up.
+ * Returns true when a link was found (the address bar is cleaned either way).
+ */
+export async function consumeLinkInUrl(): Promise<boolean> {
+  if (!supabase || !/[?&#]token_hash=/.test(location.href)) return false;
+  const href = location.href;
+  history.replaceState(null, '', location.pathname + location.hash.replace(/[?&]?token_hash=[^&]*(&type=[^&]*)?/, ''));
+  await verifyLink(href);
+  return true;
+}
+
 export async function signOut(): Promise<void> {
   await supabase?.auth.signOut();
 }

@@ -5,7 +5,7 @@ import { nowIso } from './lib/dates';
 import { ProfileContext, type ProfileCtx } from './lib/profile';
 import { getSettings, patchSettings, type LocalSettings } from './storage/db';
 import { initSync, syncNow } from './storage/sync';
-import { currentUser, isRemoteConfigured, onAuthChange } from './storage/supabase';
+import { consumeLinkInUrl, currentUser, isRemoteConfigured, onAuthChange } from './storage/supabase';
 import { setSoundEnabled, sound } from './lib/sound';
 import { hasChosen, listProfiles, newProfileId, putProfile, setActiveId, type Profile } from './storage/profiles';
 import { openActiveProfile, switchProfile } from './storage/session';
@@ -47,6 +47,8 @@ export function App() {
       setActiveIdState(id);
       setProfiles(await listProfiles());
       setChosen(await hasChosen());
+      // Opened from the link in a sign-in email: sign in before deciding what to show.
+      await consumeLinkInUrl().catch(async () => setToast(makeT((await getSettings()).lang)('account.expired')));
       setNeedAuth(isRemoteConfigured() && !(await currentUser()));
       const s = await loadSettings();
       const standalone = matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone;
