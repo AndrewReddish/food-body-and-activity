@@ -153,7 +153,7 @@ async function main() {
 
   // 07 Settings
   await tab('Опції');
-  await chapter({ pill: '07 · Опції', title: 'Ваш план, ваші дані', uk: 'План тренера можна змінити. Кілька людей на одному телефоні, синхронізація в приватний GitHub, експорт у CSV і JSON.', en: 'Edit the plan, add people, sync to a private GitHub repo, export anytime.' });
+  await chapter({ pill: '07 · Опції', title: 'Ваш план, ваші дані', uk: 'План тренера можна змінити. Кілька людей на одному телефоні, синхронізація з вашим акаунтом, експорт у CSV і JSON.', en: 'Edit the plan, add people, sync to your account, export anytime.' });
   await wait(2600);
   await scroll(620, 2200);
   await wait(800);
@@ -162,7 +162,7 @@ async function main() {
   await tab('Головна');
 
   // Outro (dark theme)
-  await chapter({ cover: true, title: 'Тіло · Body', uk: 'Офлайн-PWA на iPhone · синхронізація в приватний GitHub · кілька користувачів.', en: 'Offline PWA for iPhone · private GitHub sync · several users on one device.', foot: '' });
+  await chapter({ cover: true, title: 'Тіло · Body', uk: 'Офлайн-PWA на iPhone · синхронізація з акаунтом · кілька користувачів.', en: 'Offline PWA for iPhone · account sync · several users on one device.', foot: '' });
   await wait(4500);
 
   await cdp.send('Page.stopScreencast');

@@ -1,0 +1,49 @@
+/**
+ * The remote side of sync, kept behind a small interface so the merge logic (sync-remote.ts) can be
+ * unit-tested against an in-memory store. The real implementation is Supabase (supabase.ts).
+ *
+ * Every row belongs to the signed-in account and one app user (`profile`). The server keeps the newer
+ * `updatedAt` on conflicting writes and stamps each accepted write with a server time (`syncedAt`),
+ * which drives incremental pulls.
+ */
+export type RecordKind = 'days' | 'measures';
+
+export interface RemoteRow {
+  /** Record payload exactly as the app stores it (validated with Zod on the way back in). */
+  data: unknown;
+  /** Server time of the last accepted write. */
+  syncedAt: string;
+}
+
+export interface RemoteChanges {
+  days: RemoteRow[];
+  measures: RemoteRow[];
+  plan?: RemoteRow;
+}
+
+export interface RemoteProfile {
+  id: string;
+  name: string;
+  color: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RemoteStore {
+  /** Upsert records keyed by `date`; rows the server already has a newer version of are left alone. */
+  putRecords(kind: RecordKind, profile: string, rows: { date: string; updatedAt: string; data: unknown }[]): Promise<void>;
+  putPlan(profile: string, plan: { updatedAt: string }): Promise<void>;
+  /** Everything for this user written at or after `since` (all of it when `since` is undefined). */
+  changesSince(profile: string, since?: string): Promise<RemoteChanges>;
+  /** Photos are immutable: uploading one that already exists is not an error. */
+  putPhoto(profile: string, id: string, blob: Blob): Promise<void>;
+  getPhoto(profile: string, id: string): Promise<Blob | undefined>;
+  listProfiles(): Promise<RemoteProfile[]>;
+  putProfiles(profiles: RemoteProfile[]): Promise<void>;
+}
+
+export class RemoteError extends Error {
+  constructor(message: string, readonly status?: number) {
+    super(message);
+  }
+}

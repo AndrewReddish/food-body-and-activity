@@ -11,12 +11,12 @@ Rebuild of the old Telegram mini app («Наука та здоровий глу�
 | Raw / cooked | Weight conversion by food-type yield; fried → prompt to log the oil. |
 | Steps | Manual entry (a web app can't read Apple Health). |
 | Measurements | Weight, waist, hips, chest, arm, thigh, progress photos. |
-| Storage | Same private data repo as «Сфери», under `food/`. Same users. |
+| Storage | On the phone (IndexedDB), synced to Supabase; email sign-in with a code. |
 
 ## Status
 - [x] Data contract, cooking algorithm, coach plan seed — unit-tested
 - [x] Home, Ration (log sheet, oil prompt, rules), Steps, Measures (chart, photos, compare), Settings (plan editor)
-- [x] Sync to `food/` + photos; reuse of «Сфери»'s connection and users
+- [x] Sync to Supabase (days, measurements, plan, photos, users); email code sign-in
 - [x] UA/EN, light/dark, motion and sounds
 - [x] v1.1: remaining amount of every food always visible (shrinks proportionally within the group); dish ideas sized to what's left, logged in one tap; built-in menu + own dishes
 - [ ] Real-device check on the iPhone; enable Pages for this repo

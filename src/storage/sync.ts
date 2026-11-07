@@ -1,6 +1,8 @@
-import { db, getSettings, patchSettings } from './db';
-import { pullAll, pushDirty, syncProfilesFile, SyncError } from './sync-github';
-import { listProfiles, meta } from './profiles';
+import { db, getSettings, patchSettings, TiloDB } from './db';
+import { markAllDirty, pushDirty, syncAll, syncProfiles, type SyncTarget } from './sync-remote';
+import { RemoteError } from './remote';
+import { currentUser, isRemoteConfigured, onAuthChange, supabaseStore } from './supabase';
+import { dbNameFor, listProfiles, meta, profileIdFor } from './profiles';
 import { nowIso } from '../lib/dates';
 
 export type SyncStatus =
@@ -29,33 +31,47 @@ export function onSyncStatus(fn: (s: SyncStatus) => void): () => void {
 }
 
 function describe(e: unknown): string {
-  if (e instanceof SyncError) {
-    if (e.status === 401) return 'token rejected (401)';
-    if (e.status === 403) return 'no access (403)';
-    if (e.status === 404) return 'repository not found (404)';
-    return `${e.message} (${e.status ?? 'network'})`;
+  if (e instanceof RemoteError) {
+    if (e.status === 401 || e.status === 403) return `sign in again (${e.status})`;
+    return e.status ? `${e.message} (${e.status})` : e.message;
   }
   return e instanceof Error ? e.message : String(e);
 }
 
+/**
+ * The first time an account is used on this device, everything already logged here is uploaded,
+ * for every app user (not only the active one). Remembered per account.
+ */
+async function uploadDeviceOnce(user: string): Promise<void> {
+  if ((await meta.kv.get('uploadedFor'))?.value === user) return;
+  const store = supabaseStore(user);
+  for (const p of await listProfiles()) {
+    const other = p.id !== profileIdFor(db.name);
+    const d = other ? new TiloDB(dbNameFor(p.id)) : db;
+    try {
+      await markAllDirty(d);
+      await pushDirty({ store, user, profile: p.id }, d);
+    } finally {
+      if (other) d.close();
+    }
+  }
+  await meta.kv.put({ key: 'uploadedFor', value: user });
+}
+
 async function run(kind: 'pull' | 'push'): Promise<void> {
-  const s = await getSettings();
-  if (!s.repo || !s.token) return emit({ state: 'off' });
+  const user = isRemoteConfigured() ? await currentUser() : null;
+  if (!user) return emit({ state: 'off' });
   if (!navigator.onLine) return emit({ state: 'offline' });
   emit({ state: 'syncing' });
   try {
-    // Guard: this app may only ever write inside a food/ folder of the shared data repo.
-    const prefix = s.prefix?.endsWith('food/') ? s.prefix : 'food/';
-    const target = { repo: s.repo, token: s.token, prefix };
     const runDb = db; // pin: a profile switch mid-run must not redirect writes
+    const target: SyncTarget = { store: supabaseStore(user.id), user: user.id, profile: profileIdFor(runDb.name) };
     if (kind === 'pull') {
-      await pullAll(target, runDb);
-      // The first user's profile also keeps the shared list of users in the repo root.
-      if (target.prefix === 'food/') {
-        const merged = await syncProfilesFile(target, await listProfiles());
-        await meta.profiles.bulkPut(merged);
-        window.dispatchEvent(new CustomEvent('tilo:profiles'));
-      }
+      await uploadDeviceOnce(user.id);
+      await syncAll(target, runDb);
+      const merged = await syncProfiles(target.store, await listProfiles());
+      await meta.profiles.bulkPut(merged);
+      window.dispatchEvent(new CustomEvent('tilo:profiles'));
     } else await pushDirty(target, runDb);
     const lastSyncAt = nowIso();
     await patchSettings({ lastSyncAt });
@@ -100,9 +116,17 @@ let listening = false;
 export async function initSync(): Promise<void> {
   clearTimeout(timer);
   const s = await getSettings();
-  emit(s.repo && s.token ? { state: 'idle', lastSyncAt: s.lastSyncAt } : { state: 'off' });
+  emit(isRemoteConfigured() && (await currentUser()) ? { state: 'idle', lastSyncAt: s.lastSyncAt } : { state: 'off' });
   if (listening) return void syncNow();
   listening = true;
+  // Signing in (code or magic link) starts a sync; signing out turns it off.
+  let signedIn = !!(await currentUser());
+  onAuthChange((u) => {
+    if (!!u === signedIn) return;
+    signedIn = !!u;
+    if (u) void syncNow();
+    else emit({ state: 'off' });
+  });
   window.addEventListener('online', () => void enqueue('pull'));
   window.addEventListener('offline', () => emit({ state: 'offline' }));
   document.addEventListener('visibilitychange', () => {

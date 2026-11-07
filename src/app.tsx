@@ -6,7 +6,7 @@ import { ProfileContext, type ProfileCtx } from './lib/profile';
 import { getSettings, patchSettings, type LocalSettings } from './storage/db';
 import { initSync } from './storage/sync';
 import { setSoundEnabled, sound } from './lib/sound';
-import { hasChosen, importMoodProfiles, listProfiles, newProfileId, putProfile, setActiveId, type Profile } from './storage/profiles';
+import { hasChosen, listProfiles, newProfileId, putProfile, setActiveId, type Profile } from './storage/profiles';
 import { openActiveProfile, switchProfile } from './storage/session';
 import { Today } from './routes/Today';
 import { Ration } from './routes/Ration';
@@ -39,8 +39,6 @@ export function App() {
 
   useEffect(() => {
     void (async () => {
-      // Same people as in «Сфери»: on first launch, bring its users over (read-only).
-      if (!(await hasChosen())) await importMoodProfiles();
       const id = await openActiveProfile();
       setActiveIdState(id);
       setProfiles(await listProfiles());

@@ -1,7 +1,7 @@
 # Architecture
 
-Same stack and patterns as «Сфери» (`daily-mood-and-habbits`): an offline-first PWA on GitHub Pages, with data
-synced to a **private GitHub repo** used as the database.
+An offline-first PWA on GitHub Pages. IndexedDB on the phone is what the UI reads and writes; a **Supabase**
+project (Postgres with row-level security, Auth, Storage) is the remote copy, synced in the background.
 
 ## Stack
 - **Vite + Preact + TypeScript**, hash routing: `#/today` (`#/day/<date>`), `#/ration[/<date>]`, `#/steps[/<date>]`,
@@ -38,12 +38,24 @@ Built-in menu: `BUILTIN_DISHES`; the user's own dishes and hidden built-ins live
 (`dishes`, `hiddenDishes`, optional fields).
 
 ## Sync
-- Writes **only** under `food/` (first user) or `users/<id>/food/` (others) of the shared data repo, plus the
-  shared `profiles.json` at the root. `sync.ts` refuses any prefix not ending in `food/`.
-- Merge per day / per measurement date / whole plan: newer `updatedAt` wins. 409/422 → re-pull and retry.
+- Remote: Supabase, set at build time with `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`
+  (`src/storage/supabase.ts`). Schema, RLS and the photo bucket: `supabase/migrations/0001_tilo.sql`.
+- Sign-in: email OTP. The email has a 6-digit code (typed into the app, which works in an installed iPhone app)
+  and a magic link (works in a browser tab). One account per phone owner; the app's users are rows in it.
+- Tables `profiles`, `plans`, `days`, `measures`, keyed by `(owner, profile_id, date)`. `data` holds the record
+  as the app stores it and is validated with Zod on the way back in.
+- Every local write marks a path dirty (`days/YYYY-MM.json`, `measures/YYYY.json`, `plan.json`,
+  `photos/<id>.jpg`). Push sends the records behind those paths ~3 s after the last edit.
+- Newer `updatedAt` wins, on both sides: the server trigger ignores an upsert older than the stored row, and the
+  pull keeps the newer record locally. Records are never deleted, so there are no tombstones.
+- Pulls are incremental: the server stamps `synced_at` on every accepted write; each device keeps a cursor per
+  account (re-reading a 2-minute margin before it).
 - The built-in plan is never pushed until it's edited (stamped at the epoch).
-- Photos are pushed once (immutable) and downloaded when a measurement references one this device lacks.
-- First launch reads «Сфери»'s users, repo, token, language and theme from its IndexedDB (same origin), read-only.
+- Photos are uploaded once (immutable) to `photos/<uid>/<profile>/<id>.jpg` and downloaded when a measurement
+  references one this device lacks.
+- The first sign-in of an account on a device marks everything local as dirty and uploads it, for every user.
+- The merge logic (`src/storage/sync-remote.ts`) talks to a small `RemoteStore` interface (`remote.ts`);
+  unit tests run it against an in-memory store with the same rules as the SQL migration.
 
 ## Layout
 ```
@@ -51,7 +63,7 @@ src/
   routes/      Today, Ration, Steps, Measures, Settings
   components/  ui.tsx, food.tsx (Ring, GroupChip, DayStrip, LogSheet, OilSheet, RulesSheet), profiles.tsx
   model/       schema.ts, types.ts, defaults.ts (coach plan), cooking.ts (yields, budget, summaries)
-  storage/     db.ts, merge.ts, sync-github.ts, sync.ts, export.ts, profiles.ts, session.ts
+  storage/     db.ts, merge.ts, remote.ts, supabase.ts, sync-remote.ts, sync.ts, export.ts, profiles.ts, session.ts
   lib/         dates, router, useDay, usePlan, useMeasures, sound, profile
-tests/unit/    cooking, schema, sync (fake Contents API incl. photos), export, dates
+tests/unit/    cooking, schema, sync-remote (in-memory store incl. photos), export, dates
 ```
