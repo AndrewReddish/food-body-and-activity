@@ -103,19 +103,19 @@ export function Settings({ theme, setTheme, setLang, toast }: {
             <Icon name="flame" size={22} />
             <label class="sf-row__title" style="flex:1" for="kcal">{t('settings.kcal')}</label>
             <input id="kcal" class="sf-input sf-input--ui settings-num" inputMode="numeric" value={plan.kcalTarget}
-              onChange={(e) => void save({ ...plan, kcalTarget: num((e.currentTarget as HTMLInputElement).value, plan.kcalTarget) })} />
+              onChange={(e) => void save({ ...plan, kcalTarget: num((e.currentTarget as HTMLInputElement).value, plan.kcalTarget), goalsUpdatedAt: nowIso() })} />
           </div>
           <div class="sf-row">
             <Icon name="protein" size={22} />
             <label class="sf-row__title" style="flex:1" for="protein">{t('settings.protein')}</label>
             <input id="protein" class="sf-input sf-input--ui settings-num" inputMode="numeric" value={plan.macros?.protein ?? ''}
-              onChange={(e) => void save({ ...plan, macros: { protein: num((e.currentTarget as HTMLInputElement).value, 0), fat: plan.macros?.fat ?? 0, carbs: plan.macros?.carbs ?? 0 } })} />
+              onChange={(e) => void save({ ...plan, macros: { protein: num((e.currentTarget as HTMLInputElement).value, 0), fat: plan.macros?.fat ?? 0, carbs: plan.macros?.carbs ?? 0 }, goalsUpdatedAt: nowIso() })} />
           </div>
           <div class="sf-row">
             <Icon name="steps" size={22} />
             <label class="sf-row__title" style="flex:1" for="goal">{t('settings.stepsGoal')}</label>
             <input id="goal" class="sf-input sf-input--ui settings-num" inputMode="numeric" value={plan.stepsGoal}
-              onChange={(e) => void save({ ...plan, stepsGoal: num((e.currentTarget as HTMLInputElement).value, plan.stepsGoal) })} />
+              onChange={(e) => void save({ ...plan, stepsGoal: num((e.currentTarget as HTMLInputElement).value, plan.stepsGoal), goalsUpdatedAt: nowIso() })} />
           </div>
           <button type="button" class="sf-row sf-row--tall" onClick={() => setSheet('plan')}>
             <Icon name="ration" size={22} />

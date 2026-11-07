@@ -89,6 +89,10 @@ export async function signOut(): Promise<void> {
 
 const PAGE = 1000;
 
+/** The goals table comes with migration 0002; until it is run, goals simply aren't synced. */
+const missingTable = (error: { code?: string; message: string }, status?: number) =>
+  error.code === 'PGRST205' || error.code === '42P01' || status === 404 || /could not find the table|does not exist/i.test(error.message);
+
 export function supabaseStore(uid: string, client = supabase!): RemoteStore {
   const photoPath = (profile: string, id: string) => `${uid}/${profile}/${id}.jpg`;
 
@@ -140,6 +144,19 @@ export function supabaseStore(uid: string, client = supabase!): RemoteStore {
       fail(error, status);
       return ((data ?? []) as { id: string; name: string; color: string; created_at: string; updated_at: string }[])
         .map((r) => ({ id: r.id, name: r.name, color: r.color, createdAt: r.created_at, updatedAt: r.updated_at }));
+    },
+    async getGoals(profile) {
+      const { data, error, status } = await client.from('goals').select('kcal, protein, steps, updated_at').eq('profile_id', profile).maybeSingle();
+      if (error && missingTable(error, status)) return undefined;
+      fail(error, status);
+      const r = data as { kcal: number | null; protein: number | null; steps: number | null; updated_at: string } | null;
+      return r ? { kcal: r.kcal ?? 0, protein: r.protein ?? 0, steps: r.steps ?? 0, updatedAt: r.updated_at } : undefined;
+    },
+    async putGoals(profile, g) {
+      const { error, status } = await client.from('goals')
+        .upsert({ owner: uid, profile_id: profile, kcal: g.kcal, protein: g.protein, steps: g.steps, updated_at: g.updatedAt }, { onConflict: 'owner,profile_id' });
+      if (error && missingTable(error, status)) return;
+      fail(error, status);
     },
     async putProfiles(profiles) {
       const rows = profiles.map((p) => ({ owner: uid, id: p.id, name: p.name, color: p.color, created_at: p.createdAt, updated_at: p.updatedAt }));

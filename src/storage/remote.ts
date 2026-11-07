@@ -29,6 +29,14 @@ export interface RemoteProfile {
   updatedAt: string;
 }
 
+/** Daily goals as plain columns (Supabase `goals` table), editable by the owner in the dashboard. */
+export interface RemoteGoals {
+  kcal: number;
+  protein: number;
+  steps: number;
+  updatedAt: string;
+}
+
 export interface RemoteStore {
   /** Upsert records keyed by `date`; rows the server already has a newer version of are left alone. */
   putRecords(kind: RecordKind, profile: string, rows: { date: string; updatedAt: string; data: unknown }[]): Promise<void>;
@@ -40,6 +48,10 @@ export interface RemoteStore {
   getPhoto(profile: string, id: string): Promise<Blob | undefined>;
   listProfiles(): Promise<RemoteProfile[]>;
   putProfiles(profiles: RemoteProfile[]): Promise<void>;
+  /** undefined: no row yet, or the goals table doesn't exist (migration 0002 not run). */
+  getGoals(profile: string): Promise<RemoteGoals | undefined>;
+  /** The server keeps the newer `updatedAt`. A no-op when the goals table doesn't exist. */
+  putGoals(profile: string, goals: RemoteGoals): Promise<void>;
 }
 
 export class RemoteError extends Error {

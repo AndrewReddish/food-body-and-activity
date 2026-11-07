@@ -79,6 +79,8 @@ export const PlanSchema = z.object({
   dishes: z.array(DishSchema).max(100).optional(),
   /** Built-in dish ids the user switched off. */
   hiddenDishes: z.array(Id).max(200).optional(),
+  /** When kcalTarget / macros.protein / stepsGoal last changed (they also live in the `goals` table). */
+  goalsUpdatedAt: z.string().optional(),
   updatedAt: z.string(),
 });
 
