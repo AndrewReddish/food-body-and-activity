@@ -205,3 +205,17 @@ select.sf-input { appearance: none; -webkit-appearance: none; background-image: 
 .dish-group { display: grid; gap: 8px; padding: 10px 0; border-top: 1px solid var(--line); }
 .dish-group__head { display: flex; align-items: center; gap: 10px; }
 .dish-group__method { width: auto; min-height: 40px; padding: 6px 30px 6px 12px; font-size: var(--t-sm); }
+
+/* Food history */
+.hist-empty { display: grid; justify-items: center; gap: 8px; padding: 28px 16px; text-align: center; color: var(--ink-2); }
+.hist-hits { font: 800 var(--t-sm)/1 var(--font-ui); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hist-chart { display: grid; gap: 4px; padding: 16px 16px 12px; }
+.hist-bars .bars__bar { max-width: 22px; }
+.hist-bars .bars__col.is-goal .bars__bar { background: var(--accent-soft); }
+.hist-bars .bars__col.is-over .bars__bar { background: var(--over); }
+.hist-bars__target { position: absolute; left: 10%; right: 10%; border-top: 2px solid var(--accent); pointer-events: none; }
+.hist-day__nums { display: flex; flex-wrap: wrap; gap: 4px 14px; font: 600 var(--t-xs)/1.3 var(--font-ui); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.hist-day__nums > span { display: inline-flex; align-items: center; gap: 4px; }
+.hist-day__nums .is-over { color: var(--over); }
+.hist-day__nums .is-low { color: var(--ink-3); }
+.hist-day__nums .is-done { color: var(--accent-ink); }

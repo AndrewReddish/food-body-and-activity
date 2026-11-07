@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'preact/hooks';
 
 export type Tab = 'today' | 'ration' | 'steps' | 'measures' | 'settings';
-export type Route = { name: Tab; date?: string };
+/** Screens outside the tab bar: the food history (#/history). */
+export type Route = { name: Tab | 'history'; date?: string };
 
 const TABS: Tab[] = ['today', 'ration', 'steps', 'measures', 'settings'];
 
@@ -10,6 +11,7 @@ export function parseHash(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean);
   const date = parts[1] && /^\d{4}-\d{2}-\d{2}$/.test(parts[1]) ? parts[1] : undefined;
   if (parts[0] === 'day') return { name: 'today', date };
+  if (parts[0] === 'history') return { name: 'history' };
   const name = TABS.includes(parts[0] as Tab) ? (parts[0] as Tab) : 'today';
   return { name, date };
 }

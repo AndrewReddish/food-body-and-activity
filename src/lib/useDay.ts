@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import type { DateKey, DayLog } from '../model/types';
 import { SCHEMA_VERSION } from '../model/schema';
-import { db, getDay, putDay } from '../storage/db';
+import { db, getDay, getPlan, putDay } from '../storage/db';
 import { schedulePush } from '../storage/sync';
-import { nowIso } from './dates';
+import { nowIso, todayKey } from './dates';
 
 export type DayDraft = Pick<DayLog, 'food'> & Partial<Pick<DayLog, 'steps' | 'cups' | 'soda'>>;
 
@@ -48,6 +48,10 @@ export function useDay(date: DateKey) {
     if (d.steps !== undefined) out.steps = d.steps;
     if (d.cups !== undefined) out.cups = d.cups;
     if (d.soda !== undefined) out.soda = d.soda;
+    // Today takes the current goals; a past day keeps the ones it was saved with (or gets today's, if none).
+    const plan = await getPlan(store);
+    const current = { kcal: plan.kcalTarget, protein: Math.round(plan.macros?.protein ?? 0), steps: plan.stepsGoal };
+    out.targets = date === todayKey() ? current : prev?.targets ?? current;
     await putDay(out, store);
     schedulePush();
   }, [date, store]);
