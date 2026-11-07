@@ -14,6 +14,7 @@ import { Ration } from './routes/Ration';
 import { Steps } from './routes/Steps';
 import { Measures } from './routes/Measures';
 import { Settings } from './routes/Settings';
+import { History } from './routes/History';
 import { InstallHint } from './components/InstallHint';
 import { NameStep, ProfilePicker } from './components/profiles';
 import { Welcome } from './components/account';
@@ -143,6 +144,7 @@ export function App() {
             {route.name === 'ration' && <Ration key={route.date ?? 'today'} date={route.date} />}
             {route.name === 'steps' && <Steps key={route.date ?? 'today'} date={route.date} />}
             {route.name === 'measures' && <Measures />}
+            {route.name === 'history' && <History />}
             {route.name === 'settings' && (
               <Settings theme={theme} setTheme={setTheme} setLang={setLang} toast={setToast} />
             )}

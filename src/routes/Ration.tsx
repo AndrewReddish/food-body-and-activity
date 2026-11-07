@@ -71,7 +71,10 @@ export function Ration({ date: dateParam }: { date?: DateKey }) {
         <header class="screen__head">
           <div class="screen__row" style="align-items:center;margin-bottom:-8px">
             <div class="screen__sub">{capFirst(new Intl.DateTimeFormat(locale(lang), { weekday: 'long', day: 'numeric', month: 'long' }).format(fromDateKey(date)))}</div>
-            <IconButton icon="info" label={t('rules.title')} onClick={() => setRules(true)} style="margin:-10px -10px -10px 0" />
+            <span style="display:flex;margin:-10px -10px -10px 0">
+              <IconButton icon="history" label={t('history.title')} onClick={() => go('history')} />
+              <IconButton icon="info" label={t('rules.title')} onClick={() => setRules(true)} />
+            </span>
           </div>
           <h1 class="sf-title">{t('tab.ration')}</h1>
         </header>

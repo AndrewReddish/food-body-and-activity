@@ -133,6 +133,8 @@ export const DayLogSchema = z.object({
   cups: z.number().int().min(0).max(30).optional(),
   /** Zero-calorie soda, ml (limit 330). */
   soda: z.number().int().min(0).max(10000).optional(),
+  /** The goals that applied that day (they change: automatic targets, the coach's edits), for history. */
+  targets: z.object({ kcal: z.number().min(0), protein: z.number().min(0), steps: z.number().min(0) }).optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
