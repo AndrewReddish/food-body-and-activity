@@ -184,8 +184,13 @@ describe('supabase settings', () => {
     expect(projectUrl('https://abc.supabase.co/rest/v1/')).toBe('https://abc.supabase.co');
     expect(projectUrl('https://abc.supabase.co')).toBe('https://abc.supabase.co');
     expect(projectUrl('')).toBeUndefined();
-    expect(linkToken('https://abc.supabase.co/auth/v1/verify?token=abc123&type=magiclink&redirect_to=x')).toEqual({ token_hash: 'abc123', type: 'magiclink' });
-    expect(linkToken('https://abc.supabase.co/auth/v1/verify?token=t1&type=invite&redirect_to=x')).toEqual({ token_hash: 't1', type: 'invite' });
+    expect(linkToken('https://abc.supabase.co/auth/v1/verify?token=6c52c3c63741f2b1c961b94f6a5626522084816d9535cd87d2039fd5&type=magiclink&redirect_to=x')).toEqual({ token_hash: '6c52c3c63741f2b1c961b94f6a5626522084816d9535cd87d2039fd5', type: 'magiclink' });
+    expect(linkToken('https://abc.supabase.co/auth/v1/verify?token=6c52c3c63741f2b1c961b94f6a5626522084816d9535cd87d2039fd5&type=invite&redirect_to=x')).toEqual({ token_hash: '6c52c3c63741f2b1c961b94f6a5626522084816d9535cd87d2039fd5', type: 'invite' });
     expect(linkToken('123456')).toBeUndefined();
+    // Gmail on iPhone copies its own redirect with the real link encoded inside
+    const real = 'https://abc.supabase.co/auth/v1/verify?token=4884c963095d5fe40e90959778dfa8e69989aa4e92c0e5e22d91d785&type=magiclink&redirect_to=https://x.io/';
+    expect(linkToken('https://www.google.com/url?q=' + encodeURIComponent(real) + '&sa=D&source=gmail')).toEqual({ token_hash: '4884c963095d5fe40e90959778dfa8e69989aa4e92c0e5e22d91d785', type: 'magiclink' });
+    expect(linkToken('  ' + real + '\n')).toEqual({ token_hash: '4884c963095d5fe40e90959778dfa8e69989aa4e92c0e5e22d91d785', type: 'magiclink' });
+    expect(linkToken('4884c963095d5fe40e90959778dfa8e69989aa4e92c0e5e22d91d785')).toEqual({ token_hash: '4884c963095d5fe40e90959778dfa8e69989aa4e92c0e5e22d91d785' });
   });
 });

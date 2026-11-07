@@ -57,32 +57,48 @@ export async function verifyCode(email: string, token: string): Promise<User> {
 }
 
 /**
- * Sign in with the link from the email pasted into the app (when the email template has no code yet):
- * the link's `token` is a one-time token hash that can be verified directly.
+ * Sign in with the link from the email pasted into the app (when the email template has no code yet).
+ * The link's `token` is a one-time token hash that can be verified directly.
+ *
+ * Mail apps often hand out their own wrapper instead of the real link (Gmail on iPhone copies
+ * `https://www.google.com/url?q=<encoded link>`), so the token is looked for anywhere in the pasted text,
+ * after undoing URL encoding. A bare token hash on its own is accepted too.
  */
 type LinkType = 'magiclink' | 'signup' | 'invite' | 'email';
 const LINK_TYPES: LinkType[] = ['magiclink', 'signup', 'invite', 'email'];
 
-export function linkToken(text: string): { token_hash: string; type: LinkType } | undefined {
-  try {
-    const u = new URL(text.trim());
-    const token = u.searchParams.get('token') ?? u.searchParams.get('token_hash');
-    const type = u.searchParams.get('type');
-    if (!token) return undefined;
-    // invite = the link from "Invite user" in the Supabase dashboard
-    return { token_hash: token, type: LINK_TYPES.includes(type as LinkType) ? (type as LinkType) : 'magiclink' };
-  } catch {
-    return undefined;
+export function linkToken(text: string): { token_hash: string; type?: LinkType } | undefined {
+  let s = text.trim();
+  for (let i = 0; i < 4; i++) {
+    try {
+      const d = decodeURIComponent(s.replace(/\+/g, ' '));
+      if (d === s) break;
+      s = d;
+    } catch {
+      break;
+    }
   }
+  const token = s.match(/[?&#]token(?:_hash)?=([A-Za-z0-9_-]{20,})/)?.[1];
+  if (token) {
+    const type = s.match(/[?&#]type=([a-z_]+)/)?.[1] as LinkType | undefined;
+    return { token_hash: token, type: type && LINK_TYPES.includes(type) ? type : undefined };
+  }
+  if (/^[a-f0-9]{40,}$/i.test(s)) return { token_hash: s };
+  return undefined;
 }
 
 export async function verifyLink(text: string): Promise<User> {
   const t = linkToken(text);
   if (!t) throw new RemoteError('not a sign-in link');
-  const { data, error } = await supabase!.auth.verifyOtp(t);
-  fail(error);
-  if (!data.user) throw new RemoteError('no user');
-  return data.user;
+  // Type from the link; without one, try the kinds of email this app can receive.
+  let last: { message: string; status?: number } | null = null;
+  for (const type of t.type ? [t.type] : (['magiclink', 'invite', 'signup'] as LinkType[])) {
+    const { data, error } = await supabase!.auth.verifyOtp({ token_hash: t.token_hash, type });
+    if (!error && data.user) return data.user;
+    last = error;
+  }
+  fail(last ?? { message: 'no user' });
+  throw new RemoteError('no user');
 }
 
 export async function signOut(): Promise<void> {
