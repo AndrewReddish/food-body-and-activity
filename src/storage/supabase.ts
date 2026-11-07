@@ -60,13 +60,17 @@ export async function verifyCode(email: string, token: string): Promise<User> {
  * Sign in with the link from the email pasted into the app (when the email template has no code yet):
  * the link's `token` is a one-time token hash that can be verified directly.
  */
-export function linkToken(text: string): { token_hash: string; type: 'magiclink' | 'signup' | 'email' } | undefined {
+type LinkType = 'magiclink' | 'signup' | 'invite' | 'email';
+const LINK_TYPES: LinkType[] = ['magiclink', 'signup', 'invite', 'email'];
+
+export function linkToken(text: string): { token_hash: string; type: LinkType } | undefined {
   try {
     const u = new URL(text.trim());
     const token = u.searchParams.get('token') ?? u.searchParams.get('token_hash');
     const type = u.searchParams.get('type');
     if (!token) return undefined;
-    return { token_hash: token, type: type === 'signup' || type === 'email' ? type : 'magiclink' };
+    // invite = the link from "Invite user" in the Supabase dashboard
+    return { token_hash: token, type: LINK_TYPES.includes(type as LinkType) ? (type as LinkType) : 'magiclink' };
   } catch {
     return undefined;
   }

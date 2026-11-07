@@ -185,6 +185,7 @@ describe('supabase settings', () => {
     expect(projectUrl('https://abc.supabase.co')).toBe('https://abc.supabase.co');
     expect(projectUrl('')).toBeUndefined();
     expect(linkToken('https://abc.supabase.co/auth/v1/verify?token=abc123&type=magiclink&redirect_to=x')).toEqual({ token_hash: 'abc123', type: 'magiclink' });
+    expect(linkToken('https://abc.supabase.co/auth/v1/verify?token=t1&type=invite&redirect_to=x')).toEqual({ token_hash: 't1', type: 'invite' });
     expect(linkToken('123456')).toBeUndefined();
   });
 });

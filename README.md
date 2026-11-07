@@ -3,7 +3,7 @@
 A phone-first web app for following a group-based meal plan (groups **а–ж**), daily steps and weekly body
 measurements. It works offline and syncs to your account in Supabase. Ukrainian by default, English in Settings.
 
-- **Plan & status:** [PLAN.md](PLAN.md) · **Architecture:** [ARCHITECTURE.md](ARCHITECTURE.md)
+- **Plan & status:** [PLAN.md](PLAN.md) · **Architecture:** [ARCHITECTURE.md](ARCHITECTURE.md) · **For the owner (accounts, sign-in, lost access):** [docs/ADMIN.md](docs/ADMIN.md)
 
 ## What it does
 - **Раціон**: the coach's 8 groups. Foods inside a group are alternatives that share one 100% budget. Log a food
