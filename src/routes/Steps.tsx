@@ -38,7 +38,8 @@ export function Steps({ date: dateParam }: { date?: DateKey }) {
   const week = Array.from({ length: 7 }, (_, i) => addDays(today, i - 6));
   const logged = [...hist.entries()].map(([d, s]) => (d === date ? steps : s));
   const avg = logged.length ? Math.round(logged.reduce((a, b) => a + b, 0) / logged.length) : 0;
-  const top = Math.max(goal, ...week.map((d) => (d === date ? steps : hist.get(d) ?? 0)));
+  // Headroom above the tallest bar or the goal line, so the goal label sits inside the chart.
+  const top = Math.max(goal, ...week.map((d) => (d === date ? steps : hist.get(d) ?? 0))) * 1.18;
   const wd = new Intl.DateTimeFormat(locale(lang), { weekday: 'short' });
 
   return (
@@ -74,7 +75,7 @@ export function Steps({ date: dateParam }: { date?: DateKey }) {
         <div class="sf-card steps-week">
           <div class="screen__row"><h2 class="sf-label">{t('steps.week')}</h2><span class="sf-meta">{avg ? t('steps.avg', { n: nf.format(avg) }) : ''}</span></div>
           <div class="bars" role="img" aria-label={t('steps.week')}>
-            <span class="bars__goal" style={`bottom:${(goal / top) * 100}%`}><i>{nf.format(goal)}</i></span>
+            <span class="bars__goal" style={`bottom:${(goal / top) * 100}%`}><i>{t('steps.goalLine', { n: nf.format(goal) })}</i></span>
             {week.map((d) => {
               const v = d === date ? steps : hist.get(d) ?? 0;
               return (

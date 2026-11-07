@@ -19,7 +19,8 @@ input, textarea { font-size: 16px; } /* < 16px makes iOS zoom on focus */
 .sf-label { font: 700 var(--t-md)/1.2 var(--font-ui); margin: 0; }
 .sf-meta { font: 600 var(--t-sm)/1.4 var(--font-ui); color: var(--ink-2); margin: 0; }
 .sf-entry { font: 400 15px/1.45 var(--font-entry); color: var(--ink-2); margin: 0; }
-.sf-section { font: 700 var(--t-xs)/1 var(--font-ui); color: var(--ink-2); letter-spacing: .06em; text-transform: uppercase; padding: 6px 4px 0; margin: 0; }
+.sf-section { font: 700 var(--t-xs)/1 var(--font-ui); color: var(--ink-2); letter-spacing: .06em; text-transform: uppercase; padding: 18px 4px 2px; margin: 0; }
+.sf-section:first-of-type { padding-top: 6px; }
 
 /* buttons */
 .sf-btn { min-height: 52px; padding: 0 24px; border: 0; border-radius: var(--r-pill); display: inline-flex; align-items: center; justify-content: center; gap: 8px; font: 700 var(--t-md)/1 var(--font-ui); cursor: pointer; text-decoration: none; transition: transform var(--dur-2) var(--spring), background var(--dur-1), opacity var(--dur-1); }
@@ -125,16 +126,19 @@ input, textarea { font-size: 16px; } /* < 16px makes iOS zoom on focus */
 
 /* list rows (settings) */
 .sf-list { background: var(--surface); border-radius: var(--r-card); box-shadow: var(--shadow-1); padding: 4px 0; }
-.sf-row { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 12px 0 14px; border: 0; width: 100%; background: transparent; text-align: left; color: var(--ink); font: inherit; text-decoration: none; }
+.sf-row { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 12px 8px 14px; border: 0; width: 100%; background: transparent; text-align: left; color: var(--ink); font: inherit; text-decoration: none; }
 button.sf-row { cursor: pointer; }
 .sf-row--tall { min-height: 56px; padding: 0 14px; }
 .sf-row + .sf-row { border-top: 1px solid var(--line); }
+/* A row holding a segmented control: inset, so the control doesn't touch the card's dividers. */
+.sf-row--block { display: block; padding: 10px 12px; }
 .sf-row__main { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .sf-row__title { font: 700 var(--t-md)/1.2 var(--font-ui); }
 .sf-row__title--accent { color: var(--accent-ink); }
 .sf-row__sub { font: 600 var(--t-xs)/1.2 var(--font-ui); color: var(--ink-2); display: flex; gap: 4px; align-items: center; }
 .sf-row__end { font: 600 var(--t-sm)/1 var(--font-ui); color: var(--ink-2); }
 .sf-row__chev { color: var(--ink-2); }
+.body-result { padding: 12px 16px 14px; border-top: 1px solid var(--line); margin: 0; }
 
 /* tab bar */
 .sf-tabs { position: fixed; inset: auto 0 0 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); padding: 6px max(4px, var(--safe-left)) max(8px, var(--safe-bottom)); min-height: 83px; background: var(--surface); border-top: 1px solid var(--line); z-index: 10; }

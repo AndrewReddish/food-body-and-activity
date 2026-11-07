@@ -128,6 +128,8 @@ export interface LocalSettings {
   sound?: boolean;
   /** Last weighing method per item, so "cooked" sticks for meat. */
   lastMethod?: Record<string, string>;
+  /** "Що приготувати з залишку" expanded on the Ration screen. */
+  ideasOpen?: boolean;
 }
 
 const DEFAULT_SETTINGS: LocalSettings = { lang: 'uk', theme: 'system' };
