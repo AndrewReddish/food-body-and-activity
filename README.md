@@ -20,8 +20,17 @@ measurements. It works offline and syncs to your account in Supabase. Ukrainian 
 [**demo/tonus-showcase.mp4**](demo/tonus-showcase.mp4) is an 80-second feature tour (1920×1080) on synthetic
 data: 4 weeks of meals, steps and cups, and 8 weekly measurements with progress photos, for two users.
 Chapter text sits on the left and the live app in a phone frame on the right (`scripts/demo/stage.html`).
-To re-record after UI changes, run `npm run dev`, then `npm run demo` (needs Playwright with Chromium, and
-ffmpeg). The data comes from `scripts/demo/seed.ts`. It lives only in the recording browser and is never synced.
+
+The sound track is generated, no audio files: the app's own interface sounds, logged while recording and
+rendered with the same synth (`src/lib/sound.ts`), soft chimes between chapters, and a quiet pad with a
+music-box melody (`scripts/demo/audio.js`).
+
+To re-record after UI changes (needs Playwright with Chromium, and ffmpeg):
+```sh
+VITE_SUPABASE_URL= npm run dev     # local-only, so the app doesn't open on the sign-in screen
+npm run demo                       # or: npm run demo -- --no-music  /  -- --silent
+```
+The data comes from `scripts/demo/seed.ts`. It lives only in the recording browser and is never synced.
 
 ## Develop
 ```sh

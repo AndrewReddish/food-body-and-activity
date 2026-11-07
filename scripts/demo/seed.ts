@@ -96,7 +96,7 @@ export async function seed(): Promise<void> {
     await putMeasure(m);
   }
 
-  await patchSettings({ lang: 'uk', theme: 'light', sound: false, installHintSeen: true });
+  await patchSettings({ lang: 'uk', theme: 'light', sound: true, installHintSeen: true }); // sounds are logged for the video's audio track
   await db.dirty.clear(); // nothing to push: no repo is connected
   await putProfile({ ...DEFAULT_PROFILE, name: 'Олена', updatedAt: EPOCH });
   await putProfile({ id: 'maks', name: 'Макс', color: 'nature', createdAt: EPOCH, updatedAt: EPOCH });
