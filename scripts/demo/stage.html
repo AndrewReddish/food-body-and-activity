@@ -31,8 +31,7 @@
 
     .brand { position: absolute; left: 140px; top: 84px; display: flex; align-items: center; gap: 16px; z-index: 2; }
     .brand__mark {
-      width: 52px; height: 52px; border-radius: 13px; background: #b85c3c; color: #fbf3e8;
-      display: grid; place-items: center; box-shadow: 0 2px 6px rgba(120, 50, 20, .18);
+      width: 52px; height: 52px; display: block; filter: drop-shadow(0 2px 4px rgba(60, 50, 30, .18));
     }
     .brand__name { font-weight: 700; font-size: 31px; letter-spacing: -.01em; }
 
@@ -65,9 +64,7 @@
 </head>
 <body>
   <div class="brand">
-    <span class="brand__mark">
-      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v7a2 2 0 0 0 2 2v9M11 3v7a2 2 0 0 1-2 2M7 3v4M16 21V3c2.5 1.5 3.5 4.5 3.5 8H16"/></svg>
-    </span>
+    <img class="brand__mark" src="../../app-icon.svg" alt="" />
     <span class="brand__name">Тіло · Body</span>
   </div>
 

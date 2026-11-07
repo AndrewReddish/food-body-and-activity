@@ -21,30 +21,11 @@ const OUT = join(process.cwd(), 'demo');
 const FILE = join(OUT, 'tilo-showcase.mp4');
 const FOOT = 'Демо-дані · 4 тижні записів';
 
-/** Runs in the app frame: hides the few lines that mention the companion app, so the demo stands alone. */
-const APP_INIT = () => {
-  if (window === window.top) return;
-  const hide = () => {
-    const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-    for (let n = walk.nextNode(); n; n = walk.nextNode()) {
-      if (/Сфер|Spheres/.test(n.textContent ?? '')) {
-        const el = n.parentElement?.closest('p, .sf-meta, .sf-row, button, label') ?? n.parentElement;
-        if (el) el.style.display = 'none';
-      }
-    }
-  };
-  addEventListener('DOMContentLoaded', () => {
-    hide();
-    new MutationObserver(hide).observe(document.body, { childList: true, subtree: true, characterData: true });
-  });
-};
-
 async function main() {
   mkdirSync(OUT, { recursive: true });
   const tmp = mkdtempSync(join(tmpdir(), 'tilo-demo-'));
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1, locale: 'uk-UA', timezoneId: 'Europe/Kyiv' });
-  await ctx.addInitScript(APP_INIT);
   const page = await ctx.newPage();
   page.on('pageerror', (e) => console.error('page error:', e.message));
 
