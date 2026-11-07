@@ -1,4 +1,4 @@
-# Тіло · Body — plan
+# Tonus — plan
 
 Rebuild of the old Telegram mini app («Наука та здоровий глузд») in the style of «Сфери».
 
@@ -23,7 +23,7 @@ Rebuild of the old Telegram mini app («Наука та здоровий глу�
 - [ ] Workouts tab (old app: "0/3 тренувань цього тижня")
 
 ## Open questions for Andrew
-1. App name (working title «Тіло · Body»).
+1. ~~App name~~ — Tonus (was the working title «Тіло · Body»).
 2. Group calories in the text add up to 2195, not 2210 — kept as written.
 3. Protein per food is estimated from a raw-food table (the text gives only daily macros); edit in Settings if the coach has exact numbers.
 4. Yields are typical values; tune per food type in Settings → Групи та продукти if your scale disagrees.

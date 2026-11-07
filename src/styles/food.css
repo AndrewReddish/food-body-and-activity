@@ -1,4 +1,4 @@
-/* «Тіло» · food, steps & measurement components. Same tokens and rhythm as «Сфери». */
+/* Tonus · food, steps & measurement components. Same tokens and rhythm as «Сфери». */
 :root { --over: oklch(0.56 0.15 28); --over-soft: oklch(0.93 0.035 28); --good: oklch(0.52 0.09 150); }
 [data-theme="dark"] { --over: oklch(0.72 0.13 28); --over-soft: oklch(0.32 0.05 28); --good: oklch(0.76 0.09 150); }
 @media (prefers-color-scheme: dark) { :root:not([data-theme]) { --over: oklch(0.72 0.13 28); --over-soft: oklch(0.32 0.05 28); --good: oklch(0.76 0.09 150); } }

@@ -27,6 +27,7 @@ export class TiloDB extends Dexie {
   kv!: Table<KV, string>;
   dirty!: Table<Dirty, string>;
 
+  // Database names keep the app's first name ('tilo') so existing data stays where it is.
   constructor(name = 'tilo') {
     super(name);
     this.version(1).stores({

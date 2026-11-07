@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * Data contract v1 for «Тіло».
+ * Data contract v1 for Tonus.
  * Missing fields mean "not logged", never zero.
  * Every read and write of IndexedDB and the data repo goes through these schemas.
  */

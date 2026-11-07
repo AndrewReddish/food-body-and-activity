@@ -3,7 +3,7 @@ import type { DayLog, Measure, Plan } from '../model/types';
 import { DayLogSchema, MeasureSchema, PlanSchema, SCHEMA_VERSION } from '../model/schema';
 
 export const BackupSchema = z.object({
-  app: z.literal('tilo'),
+  app: z.literal('tilo'), // backup marker from before the rename; kept so old backups restore
   schemaVersion: z.literal(SCHEMA_VERSION),
   exportedAt: z.string(),
   plan: PlanSchema,

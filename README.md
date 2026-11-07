@@ -1,4 +1,4 @@
-# Тіло · Body
+# Tonus
 
 A phone-first web app for following a group-based meal plan (groups **а–ж**), daily steps and weekly body
 measurements. It works offline and syncs to your account in Supabase. Ukrainian by default, English in Settings.
@@ -17,7 +17,7 @@ measurements. It works offline and syncs to your account in Supabase. Ukrainian 
   counters from the plan's rules.
 
 ## Demo
-[**demo/tilo-showcase.mp4**](demo/tilo-showcase.mp4) is an 80-second feature tour (1920×1080) on synthetic
+[**demo/tonus-showcase.mp4**](demo/tonus-showcase.mp4) is an 80-second feature tour (1920×1080) on synthetic
 data: 4 weeks of meals, steps and cups, and 8 weekly measurements with progress photos, for two users.
 Chapter text sits on the left and the live app in a phone frame on the right (`scripts/demo/stage.html`).
 To re-record after UI changes, run `npm run dev`, then `npm run demo` (needs Playwright with Chromium, and

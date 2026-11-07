@@ -49,15 +49,15 @@ export function Settings({ theme, setTheme, setLang, toast }: {
 
   const exportCsv = async () => {
     const [days, measures, p] = await Promise.all([allDays(), allMeasures(), getPlan()]);
-    await shareFile(`tilo-${todayKey()}.csv`, 'text/csv', toCsv(days, measures, p));
+    await shareFile(`tonus-${todayKey()}.csv`, 'text/csv', toCsv(days, measures, p));
   };
   const exportFood = async () => {
     const [days, p] = await Promise.all([allDays(), getPlan()]);
-    await shareFile(`tilo-food-${todayKey()}.csv`, 'text/csv', foodCsv(days, p));
+    await shareFile(`tonus-food-${todayKey()}.csv`, 'text/csv', foodCsv(days, p));
   };
   const exportJson = async () => {
     const [days, measures, p] = await Promise.all([allDays(), allMeasures(), getPlan()]);
-    await shareFile(`tilo-backup-${todayKey()}.json`, 'application/json', JSON.stringify(toBackup(p, days, measures, nowIso()), null, 2));
+    await shareFile(`tonus-backup-${todayKey()}.json`, 'application/json', JSON.stringify(toBackup(p, days, measures, nowIso()), null, 2));
   };
   const restore = async (file: File) => {
     try {
@@ -207,7 +207,7 @@ export function Settings({ theme, setTheme, setLang, toast }: {
       {sheet === 'dishes' && <DishesSheet plan={plan} save={save} onClose={() => setSheet(null)} />}
       {sheet === 'plan' && (
         <PlanSheet plan={plan} save={save} onClose={() => setSheet(null)}
-          onExport={() => void shareFile(`tilo-plan-${todayKey()}.json`, 'application/json', JSON.stringify(plan, null, 2))}
+          onExport={() => void shareFile(`tonus-plan-${todayKey()}.json`, 'application/json', JSON.stringify(plan, null, 2))}
           onImport={() => planRef.current?.click()} />
       )}
     </>

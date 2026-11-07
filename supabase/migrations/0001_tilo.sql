@@ -1,4 +1,4 @@
--- «Тіло» data store. Run once in the Supabase SQL editor (or `supabase db push`).
+-- Tonus data store. Run once in the Supabase SQL editor (or `supabase db push`).
 --
 -- One Supabase account per phone owner; the app's users ("profiles") are rows inside that account.
 -- Records keep the app's own Zod-validated JSON in `data`; `updated_at` is the app's edit time (newer wins),
