@@ -19,13 +19,13 @@ const url = projectUrl(import.meta.env.VITE_SUPABASE_URL as string | undefined);
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
 
 export const supabase: SupabaseClient | null = url && key
-  ? createClient(url, key, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: 'tilo-auth' } })
+  ? createClient(url, key, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false, storageKey: 'tilo-auth' } })
   : null;
 
 export const isRemoteConfigured = () => supabase !== null;
 
 function fail(error: { message: string; status?: number; code?: string } | null, status?: number): void {
-  if (error) throw new RemoteError(error.message, error.status ?? status);
+  if (error) throw new RemoteError(error.message, error.status ?? status, error.code);
 }
 
 export async function currentUser(): Promise<User | null> {
@@ -40,78 +40,47 @@ export function onAuthChange(fn: (user: User | null) => void): () => void {
   return () => data.subscription.unsubscribe();
 }
 
-/** Sends an email with a 6-digit code and a magic link; creates the account on first use. */
-export async function sendCode(email: string): Promise<void> {
-  const { error } = await supabase!.auth.signInWithOtp({
-    email,
-    options: { shouldCreateUser: true, emailRedirectTo: location.origin + location.pathname },
-  });
+/*
+ * Email + password. No emails are sent: the project keeps "Confirm email" off, so a new account is signed
+ * in straight away. (Email links can't sign in a home-screen app on iPhone: iOS opens them in the browser,
+ * which uses up the one-time token there.)
+ */
+export async function signIn(email: string, password: string): Promise<User> {
+  const { data, error } = await supabase!.auth.signInWithPassword({ email, password });
   fail(error);
+  return data.user!;
 }
 
-export async function verifyCode(email: string, token: string): Promise<User> {
-  const { data, error } = await supabase!.auth.verifyOtp({ email, token, type: 'email' });
+export async function signUp(email: string, password: string): Promise<User> {
+  const { data, error } = await supabase!.auth.signUp({ email, password });
   fail(error);
-  if (!data.user) throw new RemoteError('no user');
+  // With "Confirm email" on, Supabase returns no session and waits for an email link.
+  if (!data.session || !data.user) throw new RemoteError('email confirmation is on', undefined, 'confirm_email_on');
   return data.user;
 }
 
-/**
- * Sign in with the link from the email pasted into the app (when the email template has no code yet).
- * The link's `token` is a one-time token hash that can be verified directly.
- *
- * Mail apps often hand out their own wrapper instead of the real link (Gmail on iPhone copies
- * `https://www.google.com/url?q=<encoded link>`), so the token is looked for anywhere in the pasted text,
- * after undoing URL encoding. A bare token hash on its own is accepted too.
- */
-type LinkType = 'magiclink' | 'signup' | 'invite' | 'email';
-const LINK_TYPES: LinkType[] = ['magiclink', 'signup', 'invite', 'email'];
+/** Sets or changes the password of the signed-in account. */
+export async function setPassword(password: string): Promise<void> {
+  const { error } = await supabase!.auth.updateUser({ password });
+  fail(error);
+}
 
-export function linkToken(text: string): { token_hash: string; type?: LinkType } | undefined {
-  let s = text.trim();
-  for (let i = 0; i < 4; i++) {
-    try {
-      const d = decodeURIComponent(s.replace(/\+/g, ' '));
-      if (d === s) break;
-      s = d;
-    } catch {
-      break;
-    }
-  }
-  const token = s.match(/[?&#]token(?:_hash)?=([A-Za-z0-9_-]{20,})/)?.[1];
-  if (token) {
-    const type = s.match(/[?&#]type=([a-z_]+)/)?.[1] as LinkType | undefined;
-    return { token_hash: token, type: type && LINK_TYPES.includes(type) ? type : undefined };
-  }
-  if (/^[a-f0-9]{40,}$/i.test(s)) return { token_hash: s };
+export const MIN_PASSWORD = 8;
+
+/** Which message to show for a sign-in error (i18n key under account.err.*), or undefined for the raw one. */
+export function authErrorKey(e: unknown): string | undefined {
+  const code = (e as { code?: string })?.code ?? '';
+  const msg = (e instanceof Error ? e.message : String(e)).toLowerCase();
+  if (code === 'invalid_credentials' || msg.includes('invalid login credentials')) return 'account.err.credentials';
+  if (code === 'user_already_exists' || code === 'email_exists' || msg.includes('already registered')) return 'account.err.exists';
+  if (code === 'same_password' || msg.includes('should be different')) return 'account.err.same';
+  if (code === 'weak_password' || msg.includes('password should be')) return 'account.err.weak';
+  if (code === 'signup_disabled' || msg.includes('signups not allowed')) return 'account.err.signupOff';
+  if (code === 'email_address_invalid' || code === 'validation_failed' || msg.includes('invalid format')) return 'account.err.email';
+  if (code === 'confirm_email_on' || code === 'email_not_confirmed') return 'account.err.confirmOn';
+  if (code === 'over_request_rate_limit' || msg.includes('rate limit') || (e as { status?: number })?.status === 429) return 'account.err.rate';
+  if (msg.includes('failed to fetch') || msg.includes('network') || msg.includes('load failed')) return 'account.err.network';
   return undefined;
-}
-
-export async function verifyLink(text: string): Promise<User> {
-  const t = linkToken(text);
-  if (!t) throw new RemoteError('not a sign-in link');
-  // Type from the link; without one, try the kinds of email this app can receive.
-  let last: { message: string; status?: number } | null = null;
-  for (const type of t.type ? [t.type] : (['magiclink', 'invite', 'signup'] as LinkType[])) {
-    const { data, error } = await supabase!.auth.verifyOtp({ token_hash: t.token_hash, type });
-    if (!error && data.user) return data.user;
-    last = error;
-  }
-  fail(last ?? { message: 'no user' });
-  throw new RemoteError('no user');
-}
-
-/**
- * Opening the app from an email link of the form `<app>?token_hash=…&type=…` (see docs/ADMIN.md) signs in
- * here. Such links point at the app, not at Supabase, so a mail scanner that "visits" them can't use them up.
- * Returns true when a link was found (the address bar is cleaned either way).
- */
-export async function consumeLinkInUrl(): Promise<boolean> {
-  if (!supabase || !/[?&#]token_hash=/.test(location.href)) return false;
-  const href = location.href;
-  history.replaceState(null, '', location.pathname + location.hash.replace(/[?&]?token_hash=[^&]*(&type=[^&]*)?/, ''));
-  await verifyLink(href);
-  return true;
 }
 
 export async function signOut(): Promise<void> {
