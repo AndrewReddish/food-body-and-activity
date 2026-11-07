@@ -17,6 +17,13 @@ its design, users and private data repository. Ukrainian by default, English in 
 - **Головна**: kcal ring, the 8 groups at a glance, protein, steps, latest weight, and coffee/tea and zero-soda
   counters from the plan's rules.
 
+## Demo
+[**demo/tilo-showcase.mp4**](demo/tilo-showcase.mp4) is an 80-second feature tour (1920×1080) on synthetic
+data: 4 weeks of meals, steps and cups, and 8 weekly measurements with progress photos, for two users.
+Chapter text sits on the left and the live app in a phone frame on the right (`scripts/demo/stage.html`).
+To re-record after UI changes, run `npm run dev`, then `npm run demo` (needs Playwright with Chromium, and
+ffmpeg). The data comes from `scripts/demo/seed.ts`. It lives only in the recording browser and is never synced.
+
 ## Develop
 ```sh
 npm install

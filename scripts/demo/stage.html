@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8" />
+  <title>Тіло · demo stage</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=Manrope:wght@500;600;700&display=swap" />
+  <!--
+    1920×1080 stage for scripts/demo/record.mjs: chapter text on the left, the real app in a phone
+    frame on the right (same-origin iframe, 390×844 CSS px scaled to fit). Not part of the app build.
+  -->
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; }
+    body {
+      background: #ebe2d5;
+      color: #3a2c22;
+      font-family: Manrope, system-ui, sans-serif;
+      position: relative;
+    }
+    /* soft paper grain */
+    body::before {
+      content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .5;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .36 0 0 0 0 .27 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+    body::after {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(1200px 800px at 25% 40%, rgba(255,250,242,.55), transparent 70%);
+    }
+
+    .brand { position: absolute; left: 140px; top: 84px; display: flex; align-items: center; gap: 16px; z-index: 2; }
+    .brand__mark {
+      width: 52px; height: 52px; display: block; filter: drop-shadow(0 2px 4px rgba(60, 50, 30, .18));
+    }
+    .brand__name { font-weight: 700; font-size: 31px; letter-spacing: -.01em; }
+
+    .copy { position: absolute; left: 140px; width: 980px; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; z-index: 2; }
+    .copy.is-cover { justify-content: center; }
+    .pill {
+      align-self: flex-start; background: #a5482a; color: #fff6ee; font-weight: 700; font-size: 27px;
+      padding: 9px 19px 10px; border-radius: 999px; margin-bottom: 40px;
+    }
+    .copy h1 { font: 400 76px/1.12 Lora, Georgia, serif; margin: 0 0 22px; letter-spacing: -.01em; color: #33251c; }
+    .copy.is-cover h1 { font-size: 78px; }
+    .copy .uk { font-weight: 600; font-size: 31px; line-height: 1.47; color: #7a6656; margin: 0 0 30px; }
+    .copy .en { font: italic 400 28px/1.45 Lora, Georgia, serif; color: #a08d7d; margin: 0; }
+    .copy > * { transition: opacity .55s ease, transform .55s ease; }
+    .copy.is-out > * { opacity: 0; transform: translateY(14px); }
+    .copy.is-out .pill { transform: translateY(8px); }
+
+    .foot { position: absolute; left: 140px; bottom: 60px; font-size: 18px; font-weight: 600; color: #a9978a; z-index: 2; }
+
+    .phone {
+      position: absolute; right: 219px; top: 40px; width: 478px; height: 1000px; border-radius: 74px;
+      background: #2b211b; padding: 14px; z-index: 2;
+      box-shadow: 0 40px 80px -20px rgba(70, 40, 20, .28), 0 10px 26px rgba(70, 40, 20, .14), inset 0 0 0 2px #3c2f26;
+    }
+    .phone__screen { width: 450px; height: 972px; border-radius: 60px; overflow: hidden; background: #f6f0e8; position: relative; }
+    .phone iframe {
+      border: 0; width: 390px; height: 842px; transform: scale(1.1539); transform-origin: 0 0; display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="brand">
+    <img class="brand__mark" src="../../app-icon.svg" alt="" />
+    <span class="brand__name">Тіло · Body</span>
+  </div>
+
+  <div class="copy is-out" id="copy"></div>
+  <div class="foot" id="foot"></div>
+
+  <div class="phone"><div class="phone__screen"><iframe id="app" title="app"></iframe></div></div>
+
+  <script>
+    const copy = document.getElementById('copy');
+    /** Swap the left-hand text: fade out, replace, fade in. */
+    window.showCopy = async ({ pill = '', title, uk = '', en = '', cover = false, foot = '' }) => {
+      copy.classList.add('is-out');
+      await new Promise((r) => setTimeout(r, copy.childElementCount ? 450 : 0));
+      copy.classList.toggle('is-cover', cover);
+      const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+      copy.innerHTML = (pill ? `<span class="pill">${esc(pill)}</span>` : '') + `<h1>${esc(title)}</h1>` +
+        (uk ? `<p class="uk">${esc(uk)}</p>` : '') + (en ? `<p class="en">${esc(en)}</p>` : '');
+      document.getElementById('foot').textContent = foot;
+      requestAnimationFrame(() => requestAnimationFrame(() => copy.classList.remove('is-out')));
+    };
+    document.getElementById('app').src = new URLSearchParams(location.search).get('app') ?? '../../';
+  </script>
+</body>
+</html>
