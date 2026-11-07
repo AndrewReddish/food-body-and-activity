@@ -1,8 +1,9 @@
 /**
- * Records the «Тіло» feature demo with synthetic data.
+ * Records the «Тіло» feature showcase with synthetic data: 1920×1080, chapter text on the left,
+ * the live app in a phone frame on the right (scripts/demo/stage.html).
  *
  *   npm run dev                       # in another terminal (http://localhost:5173/food-body-and-activity/)
- *   node scripts/demo/record.mjs      # → demo/tilo-demo.mp4 (1080×1920)
+ *   npm run demo                      # → demo/tilo-showcase.mp4
  *
  * Needs Playwright (with Chromium) and ffmpeg. Data comes from scripts/demo/seed.ts and lives only in the
  * recording browser's throwaway profile.
@@ -15,36 +16,26 @@ import { join } from 'node:path';
 
 const { chromium } = createRequire(import.meta.url)('playwright');
 const BASE = process.env.DEMO_URL ?? 'http://localhost:5173/food-body-and-activity/';
+const STAGE = BASE + 'scripts/demo/stage.html';
 const OUT = join(process.cwd(), 'demo');
-const W = 390, H = 844;
+const FILE = join(OUT, 'tilo-showcase.mp4');
+const FOOT = 'Демо-дані · 4 тижні записів';
 
-/** Caption, tap ripple and title cards, drawn over the app in its own fonts and colours. */
-const OVERLAY = () => {
-  const css = `
-    .demo-cap{position:fixed;left:16px;right:16px;bottom:100px;z-index:99999;pointer-events:none;
-      background:rgba(43,33,27,.92);color:#fbf6ef;border-radius:20px;padding:14px 18px;
-      font:600 17px/1.3 var(--font-ui,system-ui);box-shadow:0 10px 30px rgba(0,0,0,.18);
-      opacity:0;transform:translateY(12px);transition:opacity .35s,transform .35s}
-    .demo-cap.on{opacity:1;transform:none}
-    .demo-cap.top{bottom:auto;top:16px;transform:translateY(-12px)}
-    .demo-cap.top.on{transform:none}
-    .demo-cap small{display:block;font-weight:500;font-size:14px;opacity:.78;margin-top:4px}
-    .demo-tap{position:fixed;z-index:99999;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;
-      background:rgba(160,72,40,.28);border:2px solid rgba(160,72,40,.7);pointer-events:none;
-      animation:demo-tap .55s ease-out forwards}
-    @keyframes demo-tap{from{transform:scale(.4);opacity:1}to{transform:scale(1.5);opacity:0}}
-    .demo-card{position:fixed;inset:0;z-index:100000;display:flex;flex-direction:column;align-items:center;
-      justify-content:center;gap:14px;text-align:center;padding:32px;background:#f4eee6;color:#2b211b;
-      opacity:0;transition:opacity .5s;pointer-events:none}
-    .demo-card.on{opacity:1}
-    .demo-card h1{font:500 56px/1 var(--font-entry,Georgia);margin:0}
-    .demo-card p{font:500 18px/1.45 var(--font-ui,system-ui);margin:0;color:#6d5d51}
-    .demo-card .dots{display:flex;gap:6px;margin-top:8px}
-    .demo-card .dots i{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font:600 14px var(--font-entry,Georgia);font-style:normal}`;
+/** Runs in the app frame: hides the few lines that mention the companion app, so the demo stands alone. */
+const APP_INIT = () => {
+  if (window === window.top) return;
+  const hide = () => {
+    const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+      if (/Сфер|Spheres/.test(n.textContent ?? '')) {
+        const el = n.parentElement?.closest('p, .sf-meta, .sf-row, button, label') ?? n.parentElement;
+        if (el) el.style.display = 'none';
+      }
+    }
+  };
   addEventListener('DOMContentLoaded', () => {
-    const s = document.createElement('style');
-    s.textContent = css;
-    document.head.append(s);
+    hide();
+    new MutationObserver(hide).observe(document.body, { childList: true, subtree: true, characterData: true });
   });
 };
 
@@ -52,20 +43,21 @@ async function main() {
   mkdirSync(OUT, { recursive: true });
   const tmp = mkdtempSync(join(tmpdir(), 'tilo-demo-'));
   const browser = await chromium.launch();
-
-  const ctxOpts = { viewport: { width: W, height: H }, deviceScaleFactor: 2, locale: 'uk-UA', timezoneId: 'Europe/Kyiv', hasTouch: true, isMobile: true };
-
-  // Synthetic data goes in through the app's own storage code before the screencast starts.
-  // Frames come from the DevTools screencast at full device resolution (Playwright's recordVideo
-  // doesn't scale with deviceScaleFactor), each held until the next one arrives.
-  const ctx = await browser.newContext(ctxOpts);
-  await ctx.addInitScript(OVERLAY);
+  const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1, locale: 'uk-UA', timezoneId: 'Europe/Kyiv' });
+  await ctx.addInitScript(APP_INIT);
   const page = await ctx.newPage();
+  page.on('pageerror', (e) => console.error('page error:', e.message));
+
+  // Synthetic data goes in through the app's own storage code (same origin as the stage's iframe).
   await page.goto(BASE);
   await page.evaluate(async (base) => (await import(base + 'scripts/demo/seed.ts')).seed(), new URL(BASE).pathname);
-  await page.goto(BASE + '#/today');
-  await page.reload();
-  await page.waitForSelector('.screen');
+  await page.goto(STAGE + '?app=' + encodeURIComponent(BASE + '#/today'));
+  const frame = await (await page.waitForSelector('#app')).contentFrame();
+  await frame.waitForSelector('.screen');
+  await page.evaluate(() => document.fonts.ready);
+  await page.waitForTimeout(600);
+
+  // Frames come from the DevTools screencast, each held until the next one arrives.
   const cdp = await ctx.newCDPSession(page);
   const frames = [];
   cdp.on('Page.screencastFrame', ({ data, metadata, sessionId }) => {
@@ -74,155 +66,123 @@ async function main() {
     frames.push({ file, t: metadata.timestamp });
     void cdp.send('Page.screencastFrameAck', { sessionId }).catch(() => {});
   });
-  await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 92, maxWidth: W * 2, maxHeight: H * 2, everyNthFrame: 1 });
-  page.on('pageerror', (e) => console.error('page error:', e.message));
+  await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 94, maxWidth: 1920, maxHeight: 1080, everyNthFrame: 1 });
 
+  const app = page.frameLocator('#app');
   const wait = (ms) => page.waitForTimeout(ms);
-  const caption = (title, sub = '', top = false) => page.evaluate(([title, sub, top]) => {
-    let el = document.querySelector('.demo-cap');
-    if (!el) { el = document.createElement('div'); el.className = 'demo-cap'; document.body.append(el); }
-    el.classList.remove('on');
-    if (!title) return;
-    el.classList.toggle('top', top);
-    el.innerHTML = title + (sub ? `<small>${sub}</small>` : '');
-    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('on')));
-  }, [title, sub, top]);
-  const card = async (html, ms) => {
-    await page.evaluate((html) => {
-      const el = document.createElement('div');
-      el.className = 'demo-card';
-      el.innerHTML = html;
-      document.body.append(el);
-      requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('on')));
-    }, html);
-    await wait(ms);
-    await page.evaluate(() => {
-      const el = document.querySelector('.demo-card');
-      el?.classList.remove('on');
-      setTimeout(() => el?.remove(), 600);
-    });
-    await wait(600);
-  };
+  const chapter = (c) => page.evaluate((c) => window.showCopy(c), { foot: FOOT, ...c });
+  /** A soft ripple where the "finger" lands (drawn on the stage, over the phone), then the real click. */
   const tap = async (loc, pause = 700) => {
     await loc.scrollIntoViewIfNeeded();
     const b = await loc.boundingBox();
     if (b) {
       await page.evaluate(([x, y]) => {
         const d = document.createElement('div');
-        d.className = 'demo-tap';
-        d.style.left = x + 'px'; d.style.top = y + 'px';
+        d.style.cssText = `position:absolute;z-index:9;left:${x - 26}px;top:${y - 26}px;width:52px;height:52px;border-radius:50%;
+          background:rgba(150,110,90,.28);pointer-events:none;transition:transform .55s ease-out,opacity .55s ease-out`;
         document.body.append(d);
+        requestAnimationFrame(() => requestAnimationFrame(() => { d.style.transform = 'scale(1.5)'; d.style.opacity = '0'; }));
         setTimeout(() => d.remove(), 700);
       }, [b.x + b.width / 2, b.y + b.height / 2]);
-      await wait(180);
+      await wait(200);
     }
     await loc.click();
     await wait(pause);
   };
-  /** Smooth scroll of the page (or a sheet), in small steps so it reads well on video. */
-  const scroll = async (dy, ms = 1200, sel = null) => {
+  /** Smooth scroll inside the app, in small steps so it reads well on video. */
+  const scroll = async (dy, ms = 1200) => {
     const steps = Math.max(1, Math.round(ms / 16));
     for (let i = 0; i < steps; i++) {
-      await page.evaluate(([d, sel]) => {
-        const t = sel ? document.querySelector(sel) : null;
-        (t ?? window).scrollBy(0, d);
-      }, [dy / steps, sel]);
+      await frame.evaluate((d) => scrollBy(0, d), dy / steps);
       await wait(16);
     }
   };
-  const scrollTop = () => page.evaluate(() => scrollTo({ top: 0, behavior: 'smooth' }));
-  const tab = (name) => tap(page.locator('nav.sf-tabs').getByRole('link', { name }), 900);
+  const scrollTop = async () => { await frame.evaluate(() => scrollTo({ top: 0, behavior: 'smooth' })); await wait(500); };
+  const tab = (name) => tap(app.locator('nav.sf-tabs').getByRole('link', { name }), 900);
   const type = async (loc, text) => {
     await loc.click();
     await loc.fill('');
-    await loc.pressSequentially(text, { delay: 120 });
+    await loc.pressSequentially(text, { delay: 130 });
   };
 
-  await page.goto(BASE + '#/today');
-  await page.waitForSelector('.screen');
-  const dot = (l, c) => `<i style="background:var(--d-${c}-soft,#eee);color:var(--d-${c}-ink,#333)">${l}</i>`;
+  // Cover
+  await chapter({ cover: true, title: 'Раціон, кроки й заміри', uk: 'План харчування по групах — без підрахунку калорій уручну. Кілька дотиків на день.', en: 'A group-based meal plan, daily steps and weekly measurements — a few taps a day.', foot: '' });
+  await wait(4200);
 
-  // Intro
-  await card(`<h1>Тіло</h1><p>Раціон тренера, кроки й заміри —<br>в одному застосунку на телефоні</p>
-    <div class="dots">${[['а', 'leisure'], ['б', 'relationships'], ['в', 'nature'], ['г', 'money'], ['д', 'sleep'], ['е', 'mood'], ['є', 'work'], ['ж', 'home']].map(([l, c]) => dot(l, c)).join('')}</div>`, 2800);
-
-  // Home
-  await caption('Головна', 'Калорії, 8 груп, білок, кроки і вага — день з одного погляду');
+  // 01 Home
+  await chapter({ pill: '01 · Головна', title: 'Увесь день на одному екрані', uk: 'Калорії, вісім груп, білок, кроки й вага. Кільця тижня показують, як ішов план.', en: 'Calories, eight food groups, protein, steps and weight at a glance.' });
   await wait(2600);
-  await caption('Тиждень угорі', 'Кільце кожного дня показує, наскільки виконано план');
-  await tap(page.locator('.sf-day').nth(4), 1400).catch(() => wait(1000));
-  await page.goto(BASE + '#/today'); await wait(700);
-  await caption('Кава, чай і газована без цукру', 'Лічильники з правил тренера');
-  await scroll(320, 1100);
-  await tap(page.getByRole('button', { name: 'Більше' }).first(), 900).catch(() => wait(600));
-  await wait(900);
-  await scrollTop(); await wait(500);
+  await tap(app.locator('.sf-day').nth(4), 1600);
+  await tap(app.locator('.sf-day').nth(6), 1000);
+  await scroll(330, 1200);
+  await tap(app.getByRole('button', { name: 'Більше' }).first(), 1500);
+  await scrollTop();
 
-  // Ration
+  // 02 Ration
   await tab('Раціон');
-  await caption('Раціон', 'План тренера: продукти в групі — взаємозамінні й ділять одну норму');
-  await wait(2400);
-  await caption('Записати продукт', 'Наприклад, куряче філе з групи «б»');
-  const fillet = page.locator('.gcard__item', { hasText: 'Куряче або індиче філе' });
-  if (!(await fillet.isVisible())) await tap(page.locator('.gcard__head', { hasText: 'М’ясо, риба, яйця' }), 600);
-  await tap(fillet, 900);
-  await caption('Зважуйте готове', 'Застосунок сам перерахує в сиру вагу, яку рахує план', true);
-  await tap(page.getByRole('radio', { name: 'Смажене' }), 800);
-  await type(page.locator('#amount'), '160');
-  await wait(1500);
-  await tap(page.getByRole('button', { name: 'Записати' }).last(), 900);
-  await caption('Смажили?', 'Застосунок запропонує додати олію в групу «г»', true);
-  await wait(1200);
-  await tap(page.locator('.sf-chip', { hasText: /^10 г$/ }).first(), 1200).catch(() => wait(800));
+  await chapter({ pill: '02 · Раціон', title: 'Вісім груп — одна норма на кожну', uk: 'Продукти в групі взаємозамінні: що з’їв — віднімається від спільних 100%.', en: 'Foods in a group are alternatives that share one 100% budget.' });
+  await wait(1800);
+  await scroll(760, 2200);
+  await wait(900);
+  const fillet = app.locator('.gcard__item', { hasText: 'Куряче або індиче філе' });
+  if (!(await fillet.isVisible())) await tap(app.locator('.gcard__head', { hasText: 'М’ясо, риба, яйця' }), 600);
 
-  await scrollTop(); await wait(600);
-  await caption('Що приготувати з залишку', 'Залишок ділиться на прийоми їжі — і з нього складаються страви');
-  await page.getByRole('heading', { name: 'Що приготувати з залишку' }).first().scrollIntoViewIfNeeded().catch(() => {});
-  await wait(1600);
-  await tap(page.getByRole('radio', { name: '2' }).first(), 1200).catch(() => wait(600));
-  await caption('Одним дотиком', 'Можна підправити грами — і записати всю страву', true);
-  await tap(page.getByRole('button', { name: 'Записати', exact: true }).first(), 1500);
-  await tap(page.getByRole('button', { name: /Записати страву/ }), 1300);
-  await caption('Прогрес по групах', 'Понад норму — чесно червоним, без заборон');
-  await scroll(900, 2600);
+  // 03 Cooked → raw
+  await chapter({ pill: '03 · Готове → сире', title: 'Зважили готове — план порахує сире', uk: 'Варене, запечене чи смажене перераховується в сиру вагу. Після смаженого — нагадування про олію.', en: 'Weigh it cooked; the app converts it to the raw weight the plan counts.' });
+  await tap(fillet, 1200);
+  await tap(app.getByRole('radio', { name: 'Смажене' }), 900);
+  await type(app.locator('#amount'), '160');
   await wait(800);
-  await scrollTop(); await wait(400);
+  await frame.evaluate(() => document.querySelector('.sf-sheet__body, .sf-sheet')?.scrollBy({ top: 300, behavior: 'smooth' }));
+  await wait(2000);
+  await tap(app.getByRole('button', { name: 'Записати', exact: true }).last(), 1300);
+  await tap(app.locator('.sf-chip', { hasText: /^10 г$/ }).first(), 1500);
+  await scrollTop();
 
-  // Steps
+  // 04 Dish ideas
+  await chapter({ pill: '04 · Що приготувати', title: 'Страви із залишку норми', uk: 'Залишок ділиться на прийоми їжі, що лишились, — і з нього складаються страви з грамовками.', en: 'What’s left is split over the remaining meals and turned into dishes.' });
+  await app.getByRole('heading', { name: 'Що приготувати з залишку' }).first().scrollIntoViewIfNeeded();
+  await wait(1600);
+  await tap(app.getByRole('radio', { name: '2' }).first(), 1500);
+  await tap(app.getByRole('button', { name: 'Записати', exact: true }).first(), 2200);
+  await tap(app.getByRole('button', { name: /Записати страву/ }), 1500);
+  await scrollTop();
+  await wait(800);
+
+  // 05 Steps
   await tab('Кроки');
-  await caption('Кроки', 'Ціль 7 000 на день, тиждень на графіку');
-  await wait(1200);
-  await tap(page.getByRole('button', { name: '+1000' }), 700);
-  await tap(page.getByRole('button', { name: '+1000' }), 700);
-  await tap(page.getByRole('button', { name: '+1000' }), 1500);
-  await caption('Кроки', 'Дотик до стовпчика — відкриває той день');
-  await scroll(300, 900);
+  await chapter({ pill: '05 · Кроки', title: 'Ціль на день і тиждень на графіку', uk: 'Вносьте число з телефона чи годинника. 7 000 кроків — ціль за замовчуванням.', en: 'Enter today’s steps; the week is one bar chart against your goal.' });
   await wait(1400);
+  await tap(app.getByRole('button', { name: '+1000' }), 650);
+  await tap(app.getByRole('button', { name: '+1000' }), 650);
+  await tap(app.getByRole('button', { name: '+1000' }), 1600);
+  await scroll(320, 1000);
+  await wait(1800);
+  await scrollTop();
 
-  // Measures
+  // 06 Measures
   await tab('Заміри');
-  await caption('Заміри раз на тиждень', 'Вага, талія, стегна, груди, рука, нога — і тренд ваги');
+  await chapter({ pill: '06 · Заміри', title: 'Раз на тиждень — вага, обхвати, фото', uk: 'Тренд ваги, зміни з першого заміру і фото «до» та «після» поруч.', en: 'Weekly weight, tape measurements and progress photos side by side.' });
   await wait(2600);
-  await scroll(520, 1600);
-  await caption('Фото прогресу', 'Порівняння «до» і «після» поруч', true);
-  await tap(page.getByRole('button', { name: 'Порівняти' }), 2600);
-  await page.keyboard.press('Escape'); await wait(400);
-  await page.getByRole('button', { name: /Закрити/ }).last().click().catch(() => {});
+  await scroll(560, 1600);
   await wait(600);
-  await scrollTop(); await wait(400);
+  await tap(app.getByRole('button', { name: 'Порівняти' }), 3200);
+  await tap(app.getByRole('button', { name: 'Закрити' }).last(), 800);
+  await scrollTop();
 
-  // Settings
+  // 07 Settings
   await tab('Опції');
-  await caption('Кілька людей на одному телефоні', 'Ті самі користувачі, що й у «Сферах», — дані окремо');
-  await wait(2400);
-  await caption('Ваші дані — у вашому приватному GitHub', 'Синхронізація, експорт у CSV і JSON, план тренера можна редагувати');
-  await scroll(700, 2600);
-  await wait(1200);
-  await caption('');
+  await chapter({ pill: '07 · Опції', title: 'Ваш план, ваші дані', uk: 'План тренера можна змінити. Кілька людей на одному телефоні, синхронізація в приватний GitHub, експорт у CSV і JSON.', en: 'Edit the plan, add people, sync to a private GitHub repo, export anytime.' });
+  await wait(2600);
+  await scroll(620, 2200);
+  await wait(800);
+  await tap(app.getByRole('radio', { name: 'Темна' }).or(app.getByRole('button', { name: 'Темна' })).first(), 1400);
+  await scrollTop();
+  await tab('Головна');
 
-  // Outro
-  await card(`<h1>Тіло</h1><p>Офлайн, без реклами й акаунтів.<br>Працює в парі зі «Сферами».</p>
-    <p style="font-size:15px">andrewreddish.github.io/food-body-and-activity</p>`, 3200);
+  // Outro (dark theme)
+  await chapter({ cover: true, title: 'Тіло · Body', uk: 'Офлайн-PWA на iPhone · синхронізація в приватний GitHub · кілька користувачів.', en: 'Offline PWA for iPhone · private GitHub sync · several users on one device.', foot: '' });
+  await wait(4500);
 
   await cdp.send('Page.stopScreencast');
   const end = Date.now() / 1000;
@@ -232,13 +192,10 @@ async function main() {
   const list = frames.map((f, i) => `file '${f.file}'\nduration ${Math.max(0.001, (frames[i + 1]?.t ?? end) - f.t).toFixed(3)}`);
   list.push(`file '${frames.at(-1).file}'`);
   writeFileSync(join(tmp, 'frames.txt'), list.join('\n'));
-  // 1080×1920 (Reels/Shorts/Stories): the phone screen centred on the app's background colour.
   execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', join(tmp, 'frames.txt'),
-    '-vf', 'scale=-2:1920:flags=lanczos,pad=1080:1920:(ow-iw)/2:0:color=0xF4EEE6,fps=30',
-    '-c:v', 'libx264', '-preset', 'slow', '-crf', '20', '-pix_fmt', 'yuv420p', '-movflags', '+faststart',
-    join(OUT, 'tilo-demo.mp4')]);
+    '-vf', 'fps=30,format=yuv420p', '-c:v', 'libx264', '-preset', 'slow', '-crf', '20', '-movflags', '+faststart', FILE]);
   rmSync(tmp, { recursive: true, force: true });
-  console.log('Saved', join(OUT, 'tilo-demo.mp4'));
+  console.log('Saved', FILE);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
