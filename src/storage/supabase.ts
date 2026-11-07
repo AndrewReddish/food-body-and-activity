@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
-import { RemoteError, type RecordKind, type RemoteChanges, type RemoteProfile, type RemoteRow, type RemoteStore } from './remote';
+import { RemoteError, type RecordKind, type RemoteChanges, type RemoteProfile, type RemoteGoals, type RemoteRow, type RemoteStore } from './remote';
 import { BodySchema } from '../model/schema';
 import type { Body } from '../model/targets';
 import { normBody } from './goals';
@@ -182,15 +182,22 @@ export function supabaseStore(uid: string, client = supabase!): RemoteStore {
     },
     async getGoals(profile) {
       let { data, error, status } = await client.from('goals').select(`kcal, protein, steps, updated_at, ${BODY_COLS}`).eq('profile_id', profile).maybeSingle();
-      if (error && missingColumn(error)) ({ data, error, status } = await client.from('goals').select('kcal, protein, steps, updated_at').eq('profile_id', profile).maybeSingle());
+      let hasBody = true;
+      if (error && missingColumn(error)) {
+        hasBody = false;
+        ({ data, error, status } = await client.from('goals').select('kcal, protein, steps, updated_at').eq('profile_id', profile).maybeSingle());
+      }
       if (error && missingTable(error, status)) return undefined;
       fail(error, status);
       const r = data as ({ kcal: number | null; protein: number | null; steps: number | null; updated_at: string } & BodyRow) | null;
-      return r ? { kcal: r.kcal ?? 0, protein: r.protein ?? 0, steps: r.steps ?? 0, body: bodyFromRow(r), updatedAt: r.updated_at } : undefined;
+      if (!r) return undefined;
+      const goals: RemoteGoals = { kcal: r.kcal ?? 0, protein: r.protein ?? 0, steps: r.steps ?? 0, updatedAt: r.updated_at };
+      if (hasBody) goals.body = bodyFromRow(r) ?? null;
+      return goals;
     },
     async putGoals(profile, g) {
       const row = { owner: uid, profile_id: profile, kcal: g.kcal, protein: g.protein, steps: g.steps, updated_at: g.updatedAt };
-      let { error, status } = await client.from('goals').upsert({ ...row, ...bodyToRow(g.body) }, { onConflict: 'owner,profile_id' });
+      let { error, status } = await client.from('goals').upsert({ ...row, ...bodyToRow(g.body ?? undefined) }, { onConflict: 'owner,profile_id' });
       if (error && missingColumn(error)) ({ error, status } = await client.from('goals').upsert(row, { onConflict: 'owner,profile_id' }));
       if (error && missingTable(error, status)) return;
       fail(error, status);

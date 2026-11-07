@@ -78,14 +78,17 @@ export async function reconcileGoals(t: SyncTarget, db = defaultDb): Promise<voi
     await t.store.putGoals(t.profile, local);
     return;
   }
-  const same = remote.kcal === local.kcal && remote.protein === local.protein && remote.steps === local.steps && sameBody(remote.body, local.body);
+  // No body columns on the server (0003 not run): it can't hold the body, so ours is kept, not cleared.
+  const localBody = normBody(plan.body);
+  const remoteBody = remote.body === undefined ? localBody : normBody(remote.body ?? undefined);
+  const same = remote.kcal === local.kcal && remote.protein === local.protein && remote.steps === local.steps && sameBody(remoteBody, localBody);
   if (after(remote.updatedAt, local.updatedAt) || !same) {
     await putPlan({
       ...plan,
       kcalTarget: remote.kcal,
       stepsGoal: remote.steps,
       macros: { protein: remote.protein, fat: plan.macros?.fat ?? 0, carbs: plan.macros?.carbs ?? 0 },
-      body: normBody(remote.body),
+      body: remoteBody,
       goalsUpdatedAt: remote.updatedAt,
     }, { markDirty: false }, db);
   }

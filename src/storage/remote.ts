@@ -35,8 +35,12 @@ export interface RemoteGoals {
   kcal: number;
   protein: number;
   steps: number;
-  /** Body data and weight goal (plan.body): sex, birth year, height, start weight, activity, goal, auto … */
-  body?: Body;
+  /**
+   * Body data and weight goal (plan.body): sex, birth year, height, start weight, activity, goal, auto …
+   * null: the table has the body columns, all empty. Absent: the table has no body columns (migration 0003
+   * not run), so the server says nothing about the body and the app's copy must be kept.
+   */
+  body?: Body | null;
   updatedAt: string;
 }
 

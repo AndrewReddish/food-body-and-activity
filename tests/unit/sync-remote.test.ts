@@ -20,6 +20,7 @@ function fakeStore() {
   const profiles = new Map<string, RemoteProfile>();
   const goals = new Map<string, RemoteGoals>();
   let goalsTable = true;
+  let bodyColumns = true;
   let formula: Record<string, unknown> | undefined;
   const table = (user: string, kind: string, profile: string) => {
     const k = `${user}/${kind}/${profile}`;
@@ -45,18 +46,25 @@ function fakeStore() {
     async listProfiles() { return [...profiles.values()].map((p) => ({ ...p })); },
     async putProfiles(list) { for (const p of list) profiles.set(p.id, { ...p }); },
     async getFormula() { return formula; },
-    async getGoals(profile) { return goalsTable ? structuredClone(goals.get(`${user}/${profile}`)) : undefined; },
+    async getGoals(profile) {
+      if (!goalsTable) return undefined;
+      const g = structuredClone(goals.get(`${user}/${profile}`));
+      if (!g) return undefined;
+      // Like supabase.ts: null = the body columns exist but are empty; no key = no body columns (0003 not run).
+      if (bodyColumns) g.body = g.body ?? null; else delete g.body;
+      return g;
+    },
     async putGoals(profile, g) {
       if (!goalsTable) return;
       const cur = goals.get(`${user}/${profile}`);
       if (cur && Date.parse(g.updatedAt) < Date.parse(cur.updatedAt)) return; // like the trigger: newer stays
-      goals.set(`${user}/${profile}`, { ...g });
+      goals.set(`${user}/${profile}`, bodyColumns ? { ...g } : { ...g, body: undefined });
     },
   });
   /** What a dashboard edit does: change numbers, stamp now. */
   const ownerEdit = (user: string, profile: string, g: Omit<RemoteGoals, 'updatedAt'>) =>
     goals.set(`${user}/${profile}`, { ...g, updatedAt: new Date(clock += 1000).toISOString() });
-  return { forUser, table, photos, profiles, goals, ownerEdit, dropGoalsTable: () => { goalsTable = false; }, setFormula: (f: Record<string, unknown>) => { formula = f; }, setClock: (iso: string) => { clock = Date.parse(iso); } };
+  return { forUser, table, photos, profiles, goals, ownerEdit, dropGoalsTable: () => { goalsTable = false; }, dropBodyColumns: () => { bodyColumns = false; }, setFormula: (f: Record<string, unknown>) => { formula = f; }, setClock: (iso: string) => { clock = Date.parse(iso); } };
 }
 
 let i = 0;
@@ -322,5 +330,29 @@ describe('automatic targets', () => {
     await syncAll(target, db);
     expect((await getPlan(db)).kcalTarget).toBe(1650);
   });
-});
 
+  it('keeps body data typed in the app when the goals table has no body columns yet (0003 not run)', async () => {
+    remote.dropBodyColumns();
+    const db = freshDb();
+    await syncAll(target, db);
+    const p = await getPlan(db);
+    const stamp = new Date().toISOString();
+    await putPlan({ ...p, body: body, goalsUpdatedAt: stamp, updatedAt: stamp }, {}, db);
+    await syncAll(target, db);
+    await syncAll(target, db);
+    expect((await getPlan(db)).body).toMatchObject({ height: 165, birthYear: body.birthYear, auto: true });
+    expect((await getPlan(db)).kcalTarget).toBe(1690);
+  });
+
+  it('keeps body data typed in the app when the body columns are there', async () => {
+    const db = freshDb();
+    await syncAll(target, db);
+    const p = await getPlan(db);
+    const stamp = new Date().toISOString();
+    await putPlan({ ...p, body, goalsUpdatedAt: stamp, updatedAt: stamp }, {}, db);
+    await syncAll(target, db);
+    await syncAll(target, db);
+    expect((await getPlan(db)).body).toMatchObject({ height: 165, auto: true });
+    expect(remote.goals.get('u1/w')!.body).toMatchObject({ height: 165 });
+  });
+});
