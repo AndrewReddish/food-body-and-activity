@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import type { Measure } from '../model/types';
 import { allMeasures, db, putMeasure } from '../storage/db';
 import { schedulePush } from '../storage/sync';
+import { recomputeGoals } from '../storage/goals';
 
 export function useMeasures() {
   const [list, setList] = useState<Measure[]>([]);
@@ -15,6 +16,8 @@ export function useMeasures() {
   }, [load]);
   const save = useCallback(async (m: Measure) => {
     await putMeasure(m, store);
+    // A new weight moves automatic targets.
+    if (await recomputeGoals(store)) window.dispatchEvent(new CustomEvent('tilo:plan'));
     load();
     schedulePush();
   }, [store, load]);

@@ -1,3 +1,4 @@
+import type { Body, Formula } from '../model/targets';
 /**
  * The remote side of sync, kept behind a small interface so the merge logic (sync-remote.ts) can be
  * unit-tested against an in-memory store. The real implementation is Supabase (supabase.ts).
@@ -34,6 +35,8 @@ export interface RemoteGoals {
   kcal: number;
   protein: number;
   steps: number;
+  /** Body data and weight goal (plan.body): sex, birth year, height, start weight, activity, goal, auto … */
+  body?: Body;
   updatedAt: string;
 }
 
@@ -52,6 +55,8 @@ export interface RemoteStore {
   getGoals(profile: string): Promise<RemoteGoals | undefined>;
   /** The server keeps the newer `updatedAt`. A no-op when the goals table doesn't exist. */
   putGoals(profile: string, goals: RemoteGoals): Promise<void>;
+  /** The owner's formula coefficients (`formula` table); undefined when there is none (migration 0003 not run). */
+  getFormula(): Promise<Partial<Formula> | undefined>;
 }
 
 export class RemoteError extends Error {
