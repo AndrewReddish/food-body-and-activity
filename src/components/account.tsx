@@ -22,7 +22,9 @@ export function SignInForm({ onSignedIn }: { onSignedIn: () => void | Promise<vo
     try {
       await fn();
     } catch (e) {
-      setErr(t('account.error', { msg: e instanceof Error ? e.message : String(e) }));
+      const msg = e instanceof Error ? e.message : String(e);
+      // Used, expired or replaced by a newer email: say what to do, not only what went wrong.
+      setErr(/expired|invalid|not found|otp/i.test(msg) ? t('account.expired') : t('account.error', { msg }));
     } finally {
       setBusy(false);
     }
@@ -40,7 +42,7 @@ export function SignInForm({ onSignedIn }: { onSignedIn: () => void | Promise<vo
     <div class="stack">
       <p class="sf-meta">{t('account.codeSent', { email: sentTo })}</p>
       <TextField id="otp" ui label={t('account.code')} placeholder="123456" value={code}
-        onInput={(v) => setCode(/^\s*https?:/i.test(v) ? v.trim() : v.replace(/\D/g, '').slice(0, 10))} />
+        onInput={(v) => setCode(/^\s*\d{0,10}\s*$/.test(v) ? v.replace(/\D/g, '') : v.trim())} />
       <p class="sf-meta">{t('account.linkHint')}</p>
       {err && <div class="sf-banner" role="alert">{err}</div>}
       <Button block icon="check" disabled={busy || (!isLink && code.length < 6)} onClick={() => void verify()}>{t('account.signIn')}</Button>

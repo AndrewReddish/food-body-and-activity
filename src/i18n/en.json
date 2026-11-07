@@ -260,5 +260,6 @@
   "name.title": "What’s your name?",
   "name.hint": "It shows in the list of users. You can change it later in Settings.",
   "name.placeholder": "Your name",
-  "profiles.unnamed": "No name"
+  "profiles.unnamed": "No name",
+  "account.expired": "This code or link is used or expired. Each new email cancels the earlier ones — tap “Different email”, send it again and use only the newest one."
 }
