@@ -31,6 +31,8 @@ export const PlanGroupSchema = z.object({
   /** Palette id from tokens.css (`--d-<palette>`). */
   palette: z.string().min(1).max(40),
   order: z.number().int(),
+  /** Keep this group's amounts when the plan is scaled to another calorie goal (default: vegetables, nuts). */
+  fixed: z.boolean().optional(),
 });
 
 export const PlanItemSchema = z.object({
@@ -71,6 +73,8 @@ export const DishSchema = z.object({
 export const PlanSchema = z.object({
   schemaVersion: z.literal(SCHEMA_VERSION),
   kcalTarget: z.number().int().min(0).max(10000),
+  /** The calories the group amounts are written for (default 2210). A different kcalTarget scales them (scale.ts). */
+  planKcal: z.number().int().min(500).max(10000).optional(),
   macros: z.object({ protein: z.number(), fat: z.number(), carbs: z.number() }).optional(),
   stepsGoal: z.number().int().min(0).max(100000),
   groups: z.array(PlanGroupSchema),

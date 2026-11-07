@@ -80,6 +80,7 @@ export function defaultPlan(): Plan {
   return {
     schemaVersion: SCHEMA_VERSION,
     kcalTarget: 2210,
+    planKcal: 2210,
     macros: { protein: 165, fat: 62, carbs: 205 },
     stepsGoal: 7000,
     groups: DEFAULT_GROUPS.map((g) => ({ ...g })),

@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { Plan } from '../model/types';
 import { defaultPlan } from '../model/defaults';
 import { db, getPlan, putPlan } from '../storage/db';
 import { schedulePush } from '../storage/sync';
 import { nowIso } from './dates';
+import { scalePlan } from '../model/scale';
 
 export function usePlan() {
   const [plan, setPlan] = useState<Plan>(defaultPlan);
@@ -27,7 +28,9 @@ export function usePlan() {
     schedulePush();
   }, [store]);
 
-  const groups = [...plan.groups].sort((a, b) => a.order - b.order);
-  const items = [...plan.items].sort((a, b) => a.order - b.order);
-  return { plan, groups, items, save };
+  /** What the screens use: amounts scaled to this person's calorie goal. Edit and save `base`, never this. */
+  const scaled = useMemo(() => scalePlan(plan), [plan]);
+  const groups = [...scaled.groups].sort((a, b) => a.order - b.order);
+  const items = [...scaled.items].sort((a, b) => a.order - b.order);
+  return { plan: scaled, base: plan, groups, items, save };
 }

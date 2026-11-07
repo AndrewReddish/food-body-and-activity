@@ -10,6 +10,9 @@ measurements. It works offline and syncs to your account in Supabase. Ukrainian 
   raw, boiled, baked or fried: cooked weight is converted back to raw weight using a yield for that food type,
   because the plan counts raw weight. Frying offers to log the oil (group г). Going over the plan is allowed and
   shown in red.
+- **Ціль калорій масштабує план**: the coach's amounts are written for 2210 kcal. Set another calorie goal (in
+  Опції or in the `goals` table) and every group's amounts and protein scale to it; vegetables and nuts stay
+  as written by default (`src/model/scale.ts`).
 - **Кроки**: manual entry against a goal (7 000 by default), with a 7-day chart.
 - **Заміри**: weight, waist, hips, chest, arm, thigh and progress photos, with a weight trend and a side-by-side
   photo comparison.

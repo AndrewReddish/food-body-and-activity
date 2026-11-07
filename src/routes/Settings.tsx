@@ -4,6 +4,7 @@ import { COOK_TYPES, PlanSchema } from '../model/schema';
 import { defaultPlan } from '../model/defaults';
 import { YIELDS } from '../model/cooking';
 import { BUILTIN_DISHES } from '../model/dishes';
+import { isFixed, planKcalOf, scaleFactor } from '../model/scale';
 import { DishesSheet } from '../components/dishEditor';
 import { useLang, useT, locale, type Lang } from '../i18n/t';
 import { usePlan } from '../lib/usePlan';
@@ -27,7 +28,8 @@ export function Settings({ theme, setTheme, setLang, toast }: {
 }) {
   const t = useT();
   const lang = useLang();
-  const { plan, groups, items, save } = usePlan();
+  const { base: plan, plan: scaled, groups, items, save } = usePlan();
+  const k = scaleFactor(plan);
   const [status, setStatus] = useState<SyncStatus>(getSyncStatus());
   const [sheet, setSheet] = useState<'account' | 'plan' | 'dishes' | null>(null);
   const [email, setEmail] = useState<string | null>(null);
@@ -105,6 +107,7 @@ export function Settings({ theme, setTheme, setLang, toast }: {
             <input id="kcal" class="sf-input sf-input--ui settings-num" inputMode="numeric" value={plan.kcalTarget}
               onChange={(e) => void save({ ...plan, kcalTarget: num((e.currentTarget as HTMLInputElement).value, plan.kcalTarget), goalsUpdatedAt: nowIso() })} />
           </div>
+          {k !== 1 && <p class="sf-meta" style="padding:0 16px 8px">{t('settings.scaled', { pct: Math.round(k * 100), base: planKcalOf(plan) })}</p>}
           <div class="sf-row">
             <Icon name="protein" size={22} />
             <label class="sf-row__title" style="flex:1" for="protein">{t('settings.protein')}</label>
@@ -206,7 +209,7 @@ export function Settings({ theme, setTheme, setLang, toast }: {
       {sheet === 'account' && <AccountSheet email={email} syncLine={syncLine} toast={toast} onClose={() => setSheet(null)} />}
       {sheet === 'dishes' && <DishesSheet plan={plan} save={save} onClose={() => setSheet(null)} />}
       {sheet === 'plan' && (
-        <PlanSheet plan={plan} save={save} onClose={() => setSheet(null)}
+        <PlanSheet plan={plan} scaled={scaled} save={save} onClose={() => setSheet(null)}
           onExport={() => void shareFile(`tonus-plan-${todayKey()}.json`, 'application/json', JSON.stringify(plan, null, 2))}
           onImport={() => planRef.current?.click()} />
       )}
@@ -271,8 +274,8 @@ function AccountSheet({ email, syncLine, toast, onClose }: { email: string | nul
 }
 
 /** Edit groups and foods: names, 100% amounts, food type (drives raw ↔ cooked), protein. */
-function PlanSheet({ plan, save, onClose, onExport, onImport }: {
-  plan: Plan; save: (p: Plan) => Promise<void>; onClose: () => void; onExport: () => void; onImport: () => void;
+function PlanSheet({ plan, scaled, save, onClose, onExport, onImport }: {
+  plan: Plan; scaled: Plan; save: (p: Plan) => Promise<void>; onClose: () => void; onExport: () => void; onImport: () => void;
 }) {
   const t = useT();
   const lang = useLang();
@@ -286,6 +289,9 @@ function PlanSheet({ plan, save, onClose, onExport, onImport }: {
     setEditing(id);
   };
   const num = (e: Event) => parseFloat((e.currentTarget as HTMLInputElement).value.replace(',', '.'));
+  const k = scaleFactor(plan);
+  const scaledGroup = (id: string) => scaled.groups.find((g) => g.id === id);
+  const scaledItem = (id: string) => scaled.items.find((i) => i.id === id);
 
   return (
     <Sheet onClose={onClose} labelledBy="plan-title">
@@ -295,6 +301,14 @@ function PlanSheet({ plan, save, onClose, onExport, onImport }: {
           <IconButton icon="close" label={t('common.close')} tone="sunk" size={22} onClick={close} />
         </div>
         <p class="sf-meta">{t('plan.hint')}</p>
+        <div class="sf-list">
+          <div class="sf-row">
+            <label class="sf-row__title" style="flex:1" for="plan-kcal">{t('plan.baseKcal')}</label>
+            <input id="plan-kcal" class="sf-input sf-input--ui settings-num" inputMode="numeric" value={planKcalOf(plan)}
+              onChange={(e) => { const v = Math.round(num(e)); if (v >= 500 && v <= 10000) void save({ ...plan, planKcal: v }); }} />
+          </div>
+        </div>
+        <p class="sf-meta">{k === 1 ? t('plan.scaleNone') : t('plan.scaleHint', { pct: Math.round(k * 100), kcal: plan.kcalTarget })}</p>
         {groups.map((g) => {
           const items = plan.items.filter((i) => i.group === g.id).sort((a, b) => a.order - b.order);
           return (
@@ -303,7 +317,7 @@ function PlanSheet({ plan, save, onClose, onExport, onImport }: {
                 <GroupChip group={g} size={34} />
                 <span class="sf-row__main">
                   <span class="sf-row__title">{groupLabel(g, lang)}</span>
-                  <span class="sf-row__sub">~{g.kcal} {t('unit.kcal')} · {items.filter((i) => i.active).length}</span>
+                  <span class="sf-row__sub">~{g.kcal}{k !== 1 && !isFixed(g) ? ` → ${scaledGroup(g.id)?.kcal ?? g.kcal}` : ''} {t('unit.kcal')} · {items.filter((i) => i.active).length}</span>
                 </span>
                 <span style={`display:grid;transition:transform var(--dur-2) var(--ease)${open === g.id ? ';transform:rotate(90deg)' : ''}`}><Icon name="chevron-right" size={20} class="sf-row__chev" /></span>
               </button>
@@ -313,12 +327,17 @@ function PlanSheet({ plan, save, onClose, onExport, onImport }: {
                   <input id={`gk-${g.id}`} class="sf-input sf-input--ui settings-num" inputMode="numeric" value={g.kcal}
                     onChange={(e) => { const v = num(e); if (v >= 0) void save({ ...plan, groups: plan.groups.map((x) => (x.id === g.id ? { ...x, kcal: Math.round(v) } : x)) }); }} />
                 </div>
+                <div class="sf-row">
+                  <span class="sf-row__title" style="flex:1">{t('plan.scales')}</span>
+                  <Toggle checked={!isFixed(g)} label={`${t('plan.scales')}: ${groupLabel(g, lang)}`}
+                    onChange={(on) => void save({ ...plan, groups: plan.groups.map((x) => (x.id === g.id ? { ...x, fixed: !on } : x)) })} />
+                </div>
                 {items.map((i) => (
                   <div class="sf-row" style="flex-wrap:wrap;padding-block:4px">
                     <button type="button" class="sf-row__main" style="border:0;background:none;text-align:left;min-height:44px;padding:0;cursor:pointer;color:inherit"
                       onClick={() => setEditing(editing === i.id ? null : i.id)}>
                       <span class="sf-row__title" style={i.active ? '' : 'color:var(--ink-3)'}>{itemName(i, lang)}</span>
-                      <span class="sf-row__sub">{i.max} {t('unit.' + i.unit)} · {t('cook.' + i.cook)}</span>
+                      <span class="sf-row__sub">{i.max}{scaledItem(i.id) && scaledItem(i.id)!.max !== i.max ? ` → ${scaledItem(i.id)!.max}` : ''} {t('unit.' + i.unit)} · {t('cook.' + i.cook)}</span>
                     </button>
                     <Toggle checked={i.active} label={`${t('plan.active')}: ${itemName(i, lang)}`} onChange={(active) => setItem(i.id, { active })} />
                     {editing === i.id && (
