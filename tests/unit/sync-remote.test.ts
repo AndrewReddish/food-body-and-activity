@@ -177,3 +177,14 @@ describe('remote sync', () => {
     expect(merged.find((p) => p.id === 'me')!.name).toBe('Олена');
   });
 });
+
+describe('supabase settings', () => {
+  it('accepts the project URL with or without the API path', async () => {
+    const { projectUrl, linkToken } = await import('../../src/storage/supabase');
+    expect(projectUrl('https://abc.supabase.co/rest/v1/')).toBe('https://abc.supabase.co');
+    expect(projectUrl('https://abc.supabase.co')).toBe('https://abc.supabase.co');
+    expect(projectUrl('')).toBeUndefined();
+    expect(linkToken('https://abc.supabase.co/auth/v1/verify?token=abc123&type=magiclink&redirect_to=x')).toEqual({ token_hash: 'abc123', type: 'magiclink' });
+    expect(linkToken('123456')).toBeUndefined();
+  });
+});

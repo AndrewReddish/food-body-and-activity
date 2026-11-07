@@ -1,7 +1,7 @@
 import { useState } from 'preact/hooks';
 import { useT } from '../i18n/t';
 import { sound } from '../lib/sound';
-import { sendCode, verifyCode } from '../storage/supabase';
+import { linkToken, sendCode, verifyCode, verifyLink } from '../storage/supabase';
 import { Button, Illustration, TextField } from './ui';
 
 /**
@@ -28,15 +28,22 @@ export function SignInForm({ onSignedIn }: { onSignedIn: () => void | Promise<vo
     }
   };
   const send = () => attempt(async () => { await sendCode(addr.trim()); setSentTo(addr.trim()); setCode(''); });
-  const verify = () => attempt(async () => { await verifyCode(sentTo, code.trim()); sound('saved'); await onSignedIn(); });
+  const isLink = !!linkToken(code);
+  const verify = () => attempt(async () => {
+    if (isLink) await verifyLink(code);
+    else await verifyCode(sentTo, code.trim());
+    sound('saved');
+    await onSignedIn();
+  });
 
   return sentTo ? (
     <div class="stack">
       <p class="sf-meta">{t('account.codeSent', { email: sentTo })}</p>
-      <TextField id="otp" ui label={t('account.code')} placeholder="123456" value={code} onInput={(v) => setCode(v.replace(/\D/g, '').slice(0, 10))} />
+      <TextField id="otp" ui label={t('account.code')} placeholder="123456" value={code}
+        onInput={(v) => setCode(/^\s*https?:/i.test(v) ? v.trim() : v.replace(/\D/g, '').slice(0, 10))} />
       <p class="sf-meta">{t('account.linkHint')}</p>
       {err && <div class="sf-banner" role="alert">{err}</div>}
-      <Button block icon="check" disabled={busy || code.length < 6} onClick={() => void verify()}>{t('account.signIn')}</Button>
+      <Button block icon="check" disabled={busy || (!isLink && code.length < 6)} onClick={() => void verify()}>{t('account.signIn')}</Button>
       <Button variant="ghost" disabled={busy} onClick={() => { setSentTo(''); setErr(''); }}>{t('account.otherEmail')}</Button>
     </div>
   ) : (

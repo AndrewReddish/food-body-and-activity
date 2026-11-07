@@ -9,7 +9,13 @@ import { RemoteError, type RecordKind, type RemoteChanges, type RemoteProfile, t
  * Without them the app runs local-only. The publishable key is meant for clients: RLS limits every row
  * and photo to the signed-in account.
  */
-const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+/** The project URL, also when it was pasted as the API URL (…/rest/v1/). */
+export function projectUrl(raw: string | undefined): string | undefined {
+  const v = raw?.trim().replace(/\/+$/, '').replace(/\/(rest|auth|storage)\/v1$/, '');
+  return v || undefined;
+}
+
+const url = projectUrl(import.meta.env.VITE_SUPABASE_URL as string | undefined);
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
 
 export const supabase: SupabaseClient | null = url && key
@@ -45,6 +51,31 @@ export async function sendCode(email: string): Promise<void> {
 
 export async function verifyCode(email: string, token: string): Promise<User> {
   const { data, error } = await supabase!.auth.verifyOtp({ email, token, type: 'email' });
+  fail(error);
+  if (!data.user) throw new RemoteError('no user');
+  return data.user;
+}
+
+/**
+ * Sign in with the link from the email pasted into the app (when the email template has no code yet):
+ * the link's `token` is a one-time token hash that can be verified directly.
+ */
+export function linkToken(text: string): { token_hash: string; type: 'magiclink' | 'signup' | 'email' } | undefined {
+  try {
+    const u = new URL(text.trim());
+    const token = u.searchParams.get('token') ?? u.searchParams.get('token_hash');
+    const type = u.searchParams.get('type');
+    if (!token) return undefined;
+    return { token_hash: token, type: type === 'signup' || type === 'email' ? type : 'magiclink' };
+  } catch {
+    return undefined;
+  }
+}
+
+export async function verifyLink(text: string): Promise<User> {
+  const t = linkToken(text);
+  if (!t) throw new RemoteError('not a sign-in link');
+  const { data, error } = await supabase!.auth.verifyOtp(t);
   fail(error);
   if (!data.user) throw new RemoteError('no user');
   return data.user;
