@@ -3,7 +3,15 @@
  * the live app in a phone frame on the right (scripts/demo/stage.html).
  *
  *   npm run dev                       # in another terminal (http://localhost:5173/food-body-and-activity/)
- *   npm run demo                      # → demo/tonus-showcase.mp4
+ *   npm run demo                      # → demo/tonus-showcase.mp4, with sound
+ *   npm run demo -- --no-music        # interface sounds and transitions only
+ *   npm run demo -- --silent          # no audio track
+ *
+ * The app must run local-only for the recording: if .env.local has Supabase settings, start the dev server
+ * with them blanked (VITE_SUPABASE_URL= npm run dev), or the app opens on the sign-in screen.
+ *
+ * Sound: the app's own interface sounds are logged while recording (a hook in src/lib/sound.ts) and rendered
+ * afterwards together with chapter transitions and a quiet generated melody (scripts/demo/audio.js).
  *
  * Needs Playwright (with Chromium) and ffmpeg. Data comes from scripts/demo/seed.ts and lives only in the
  * recording browser's throwaway profile.
@@ -13,6 +21,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { renderDemoAudio } from './audio.js';
 
 const { chromium } = createRequire(import.meta.url)('playwright');
 const BASE = process.env.DEMO_URL ?? 'http://localhost:5173/food-body-and-activity/';
@@ -20,12 +29,22 @@ const STAGE = BASE + 'scripts/demo/stage.html';
 const OUT = join(process.cwd(), 'demo');
 const FILE = join(OUT, 'tonus-showcase.mp4');
 const FOOT = 'Демо-дані · 4 тижні записів';
+const SILENT = process.argv.includes('--silent');
+const MUSIC = !process.argv.includes('--no-music');
+/**
+ * Screencast frames show a change ~0.2 s after it happens (capture latency), measured from the tap ripple
+ * drawn before each click. Sounds are delayed by the same amount so they land on the picture.
+ */
+const AV_DELAY = Number(process.env.DEMO_AV_DELAY ?? 0.2);
 
 async function main() {
   mkdirSync(OUT, { recursive: true });
   const tmp = mkdtempSync(join(tmpdir(), 'tonus-demo-'));
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1, locale: 'uk-UA', timezoneId: 'Europe/Kyiv' });
+  // Every interface sound the app plays, with the time it played (the app frame calls this via sound.ts).
+  const events = [];
+  await ctx.exposeBinding('__soundTap', (_source, name, n) => { events.push({ t: Date.now() / 1000, name, n }); });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => console.error('page error:', e.message));
 
@@ -35,6 +54,9 @@ async function main() {
   await page.goto(STAGE + '?app=' + encodeURIComponent(BASE + '#/today'));
   const frame = await (await page.waitForSelector('#app')).contentFrame();
   await frame.waitForSelector('.screen');
+  if (await frame.locator('#password').count()) {
+    throw new Error('The app opened on the sign-in screen: Supabase is configured. Start the dev server local-only: VITE_SUPABASE_URL= npm run dev');
+  }
   await page.evaluate(() => document.fonts.ready);
   await page.waitForTimeout(600);
 
@@ -51,7 +73,11 @@ async function main() {
 
   const app = page.frameLocator('#app');
   const wait = (ms) => page.waitForTimeout(ms);
-  const chapter = (c) => page.evaluate((c) => window.showCopy(c), { foot: FOOT, ...c });
+  let covers = 0;
+  const chapter = (c) => {
+    events.push({ t: Date.now() / 1000, name: c.cover ? (covers++ === 0 ? 'intro' : 'outro') : 'chapter' });
+    return page.evaluate((c) => window.showCopy(c), { foot: FOOT, ...c });
+  };
   /** A soft ripple where the "finger" lands (drawn on the stage, over the phone), then the real click. */
   const tap = async (loc, pause = 700) => {
     await loc.scrollIntoViewIfNeeded();
@@ -167,6 +193,17 @@ async function main() {
 
   await cdp.send('Page.stopScreencast');
   const end = Date.now() / 1000;
+
+  // Audio track: offsets on the same clock as the screencast frames.
+  const t0 = frames[0].t;
+  const wav = join(tmp, 'audio.wav');
+  if (!SILENT) {
+    const timeline = events.map((e) => ({ at: +(e.t - t0 + AV_DELAY).toFixed(3), name: e.name, n: e.n }));
+    writeFileSync(join(tmpdir(), 'tonus-showcase.sounds.json'), JSON.stringify(timeline, null, 1)); // for checking the timing
+    const b64 = await page.evaluate(renderDemoAudio, { base: new URL(BASE).pathname, duration: end - t0, events: timeline, music: MUSIC });
+    writeFileSync(wav, Buffer.from(b64, 'base64'));
+    console.log(`Audio: ${timeline.filter((e) => e.at >= 0).length} sound events${MUSIC ? ' + melody' : ''}`);
+  }
   await ctx.close();
   await browser.close();
 
@@ -174,7 +211,10 @@ async function main() {
   list.push(`file '${frames.at(-1).file}'`);
   writeFileSync(join(tmp, 'frames.txt'), list.join('\n'));
   execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', join(tmp, 'frames.txt'),
-    '-vf', 'fps=30,format=yuv420p', '-c:v', 'libx264', '-preset', 'slow', '-crf', '20', '-movflags', '+faststart', FILE]);
+    ...(SILENT ? [] : ['-i', wav]),
+    '-vf', 'fps=30,format=yuv420p', '-c:v', 'libx264', '-preset', 'slow', '-crf', '20',
+    ...(SILENT ? [] : ['-af', 'volume=4dB,alimiter=limit=0.84:level=false', '-c:a', 'aac', '-b:a', '192k', '-shortest']),
+    '-movflags', '+faststart', FILE]);
   rmSync(tmp, { recursive: true, force: true });
   console.log('Saved', FILE);
 }
