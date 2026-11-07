@@ -5,14 +5,42 @@ import { linkToken, sendCode, verifyCode, verifyLink } from '../storage/supabase
 import { Button, Illustration, TextField } from './ui';
 
 /**
- * Email → 6-digit code. The same form creates an account or signs in to an existing one.
+ * Where the last email went, so an iPhone app reloaded while the person was in Mail comes back to the
+ * code step instead of the email step (sending again would cancel the link they are about to paste).
+ */
+const PENDING_KEY = 'tonus-pending-signin';
+const PENDING_MS = 60 * 60 * 1000;
+
+function loadPending(): string | null {
+  try {
+    const p = JSON.parse(localStorage.getItem(PENDING_KEY) ?? 'null') as { email: string; at: number } | null;
+    return p && Date.now() - p.at < PENDING_MS ? p.email : null;
+  } catch {
+    return null;
+  }
+}
+function savePending(email: string | null): void {
+  try {
+    if (email === null) localStorage.removeItem(PENDING_KEY);
+    else localStorage.setItem(PENDING_KEY, JSON.stringify({ email, at: Date.now() }));
+  } catch {
+    // private mode etc.: the form still works, it just won't remember
+  }
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * Email → 6-digit code (or the link from the email). The same form creates an account or signs in.
  * The code works inside an installed iPhone app; the magic link in the same email works in a browser tab.
  */
 export function SignInForm({ onSignedIn }: { onSignedIn: () => void | Promise<void> }) {
   const t = useT();
-  const [addr, setAddr] = useState('');
+  const pending = loadPending();
+  const [addr, setAddr] = useState(pending ?? '');
   const [code, setCode] = useState('');
-  const [sentTo, setSentTo] = useState('');
+  /** null = email step; '' = code step without a known email (the person already had a code or link). */
+  const [sentTo, setSentTo] = useState<string | null>(pending);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
@@ -29,32 +57,43 @@ export function SignInForm({ onSignedIn }: { onSignedIn: () => void | Promise<vo
       setBusy(false);
     }
   };
-  const send = () => attempt(async () => { await sendCode(addr.trim()); setSentTo(addr.trim()); setCode(''); });
+  const send = () => attempt(async () => {
+    await sendCode(addr.trim());
+    savePending(addr.trim());
+    setSentTo(addr.trim());
+    setCode('');
+  });
   const isLink = !!linkToken(code);
+  const email = sentTo || addr.trim();
   const verify = () => attempt(async () => {
     if (isLink) await verifyLink(code);
-    else await verifyCode(sentTo, code.trim());
+    else await verifyCode(email, code.trim());
+    savePending(null);
     sound('saved');
     await onSignedIn();
   });
+  const back = () => { savePending(null); setSentTo(null); setErr(''); setCode(''); };
 
-  return sentTo ? (
+  return sentTo !== null ? (
     <div class="stack">
-      <p class="sf-meta">{t('account.codeSent', { email: sentTo })}</p>
+      {sentTo ? <p class="sf-meta">{t('account.codeSent', { email: sentTo })}</p> : (
+        <TextField id="email" ui label={t('account.emailForCode')} placeholder="you@example.com" value={addr} onInput={setAddr} />
+      )}
       <TextField id="otp" ui label={t('account.code')} placeholder="123456" value={code}
         onInput={(v) => setCode(/^\s*\d{0,10}\s*$/.test(v) ? v.replace(/\D/g, '') : v.trim())} />
       <p class="sf-meta">{t('account.linkHint')}</p>
       {err && <div class="sf-banner" role="alert">{err}</div>}
-      <Button block icon="check" disabled={busy || (!isLink && code.length < 6)} onClick={() => void verify()}>{t('account.signIn')}</Button>
-      <Button variant="ghost" disabled={busy} onClick={() => { setSentTo(''); setErr(''); }}>{t('account.otherEmail')}</Button>
+      <Button block icon="check" disabled={busy || (!isLink && (code.length < 6 || !EMAIL_RE.test(email)))} onClick={() => void verify()}>{t('account.signIn')}</Button>
+      <Button variant="ghost" disabled={busy} onClick={back}>{t('account.otherEmail')}</Button>
     </div>
   ) : (
     <div class="stack">
       <TextField id="email" ui label={t('account.email')} placeholder="you@example.com" value={addr} onInput={setAddr} />
       {err && <div class="sf-banner" role="alert">{err}</div>}
-      <Button block icon="chevron-right" disabled={busy || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr.trim())} onClick={() => void send()}>
+      <Button block icon="chevron-right" disabled={busy || !EMAIL_RE.test(addr.trim())} onClick={() => void send()}>
         {t('account.sendCode')}
       </Button>
+      <Button variant="ghost" disabled={busy} onClick={() => { setSentTo(''); setErr(''); }}>{t('account.haveCode')}</Button>
     </div>
   );
 }

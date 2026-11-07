@@ -261,5 +261,7 @@
   "name.hint": "It shows in the list of users. You can change it later in Settings.",
   "name.placeholder": "Your name",
   "profiles.unnamed": "No name",
-  "account.expired": "This code or link is used or expired. Each new email cancels the earlier ones — tap “Different email”, send it again and use only the newest one."
+  "account.expired": "This code or link is used or expired. Each new email cancels the earlier ones — tap “Different email”, send it again and use only the newest one.",
+  "account.haveCode": "I already have a code or link",
+  "account.emailForCode": "Email (needed for a code, not for a link)"
 }
