@@ -99,12 +99,14 @@ export function App() {
         const color = order.find((c) => !profiles.some((p) => p.color === c)) ?? order[profiles.length % order.length];
         await putProfile({ id: newProfileId(name), name, color, createdAt: now, updatedAt: now });
         setProfiles(await listProfiles());
+        void syncNow(); // the account's list of users follows right away
       },
       rename: async (id, name) => {
         const p = profiles.find((x) => x.id === id);
         if (!p || !name.trim()) return;
         await putProfile({ ...p, name: name.trim(), updatedAt: nowIso() });
         setProfiles(await listProfiles());
+        void syncNow(); // the account's list of users follows right away
       },
     };
   }, [profiles, activeId, loadSettings]);
