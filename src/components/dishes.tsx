@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { FoodLog, Plan } from '../model/types';
 import { makeLog, roundAmount } from '../model/cooking';
 import { mealsLeftDefault, suggest, type BuiltDish, type MealIdea } from '../model/dishes';
 import { useLang, useT, locale, type Lang } from '../i18n/t';
 import { nowIso } from '../lib/dates';
 import { sound } from '../lib/sound';
+import { getSettings, patchSettings } from '../storage/db';
 import { Button, Icon, IconButton, Sheet, domainVars } from './ui';
 import { GroupChip, METHOD_ICON, itemName, newId } from './food';
 
@@ -19,25 +20,43 @@ export function DishIdeas({ plan, food, isToday, onLog }: {
   const [meals, setMeals] = useState(() => mealsLeftDefault(hour));
   const [seed, setSeed] = useState(0);
   const [open, setOpen] = useState<MealIdea | null>(null);
+  const [shown, setShown] = useState(false);
+  useEffect(() => void getSettings().then((st) => setShown(!!st.ideasOpen)), []);
   const ideas = useMemo(() => suggest(plan, food, meals, hour, seed), [plan, food, meals, hour, seed]);
   if (!ideas.length) return null;
+  const toggle = () => {
+    sound(shown ? 'chipOff' : 'chipOn');
+    setShown(!shown);
+    void patchSettings({ ideasOpen: !shown });
+  };
 
   return (
-    <section class="ideas" aria-labelledby="ideas-title">
-      <div class="screen__row" style="align-items:center">
-        <h2 class="sf-h2" id="ideas-title">{t('ideas.title')}</h2>
-        <IconButton icon="sync" label={t('ideas.more')} onClick={() => { sound('toggle'); setSeed(seed + 1); }} />
+    <section class={'ideas' + (shown ? ' is-open' : '')} aria-labelledby="ideas-title">
+      <div class="ideas__head">
+        <button type="button" class="ideas__toggle" aria-expanded={shown} aria-controls="ideas-body" onClick={toggle}>
+          <Icon name="leaf" size={22} />
+          <span class="ideas__titles">
+            <span class="sf-label" id="ideas-title">{t('ideas.title')}</span>
+            {!shown && <span class="sf-meta">{t('ideas.collapsed', { n: ideas.length })}</span>}
+          </span>
+          <Icon name="chevron-right" size={20} class="ideas__chev" />
+        </button>
+        {shown && <IconButton icon="sync" label={t('ideas.more')} onClick={() => { sound('toggle'); setSeed(seed + 1); }} />}
       </div>
-      <div class="ideas__meals" role="radiogroup" aria-label={t('ideas.meals')}>
-        <span class="sf-meta">{t('ideas.meals')}</span>
-        {[1, 2, 3, 4].map((n) => (
-          <button type="button" role="radio" aria-checked={n === meals} class="sf-chip sf-press" onClick={() => { sound('chipOn'); setMeals(n); }}>{n}</button>
-        ))}
-      </div>
-      <p class="sf-meta" style="padding:0 4px;margin-top:-4px">{meals === 1 ? t('ideas.hint.last') : t('ideas.hint', { n: meals })}</p>
-      <div class="ideas__list" key={`${meals}-${seed}`}>
-        {ideas.map((idea) => <IdeaCard idea={idea} plan={plan} onOpen={() => setOpen(idea)} />)}
-      </div>
+      {shown && (
+        <div class="ideas__body" id="ideas-body">
+          <div class="ideas__meals" role="radiogroup" aria-label={t('ideas.meals')}>
+            <span class="sf-meta">{t('ideas.meals')}</span>
+            {[1, 2, 3, 4].map((n) => (
+              <button type="button" role="radio" aria-checked={n === meals} class="sf-chip sf-press" onClick={() => { sound('chipOn'); setMeals(n); }}>{n}</button>
+            ))}
+          </div>
+          <p class="sf-meta" style="padding:0 4px;margin-top:-4px">{meals === 1 ? t('ideas.hint.last') : t('ideas.hint', { n: meals })}</p>
+          <div class="ideas__list" key={`${meals}-${seed}`}>
+            {ideas.map((idea) => <IdeaCard idea={idea} plan={plan} onOpen={() => setOpen(idea)} />)}
+          </div>
+        </div>
+      )}
       {open && <DishSheet idea={open} plan={plan} onClose={() => setOpen(null)} onLog={onLog} />}
     </section>
   );

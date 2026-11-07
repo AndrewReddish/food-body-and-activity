@@ -42,7 +42,7 @@ export function BodySection({ plan, save }: { plan: Plan; save: (p: Plan) => Pro
 
   return (
     <div class="sf-list">
-      <div class="sf-row" style="display:block">
+      <div class="sf-row sf-row--block">
         <Segmented<WeightGoal> label={t('body.goal')} value={body.goal ?? 'lose'} onChange={(goal) => set({ goal })}
           options={GOALS.map((g) => ({ value: g, label: t('body.goal.' + g) }))} />
       </div>
@@ -54,18 +54,18 @@ export function BodySection({ plan, save }: { plan: Plan; save: (p: Plan) => Pro
         </span>
         <Toggle checked={!!body.auto} label={t('body.auto')} onChange={(auto) => set({ auto })} />
       </div>
-      <div class="sf-row" style="display:block">
+      <div class="sf-row sf-row--block">
         <Segmented<'f' | 'm'> label={t('body.sex')} value={(body.sex ?? '') as 'f' | 'm'} onChange={(sex) => set({ sex })}
           options={[{ value: 'f', label: t('body.sex.f') }, { value: 'm', label: t('body.sex.m') }]} />
       </div>
       <div class="sf-row">
         <label class="sf-row__title" style="flex:1" for="birth">{t('body.birthYear')}</label>
-        <input id="birth" class="sf-input sf-input--ui settings-num" inputMode="numeric" value={body.birthYear ?? ''} placeholder="1970"
+        <input id="birth" class="sf-input sf-input--ui settings-num" inputMode="numeric" value={body.birthYear ?? ''}
           onChange={(e) => set({ birthYear: numIn(e, 1900, new Date().getFullYear() - 10) })} />
       </div>
       <div class="sf-row">
         <label class="sf-row__title" style="flex:1" for="height">{t('body.height')}</label>
-        <input id="height" class="sf-input sf-input--ui settings-num" inputMode="decimal" value={body.height ?? ''} placeholder="165"
+        <input id="height" class="sf-input sf-input--ui settings-num" inputMode="decimal" value={body.height ?? ''}
           onChange={(e) => set({ height: numIn(e, 80, 250) })} />
       </div>
       <div class="sf-row">
@@ -73,7 +73,7 @@ export function BodySection({ plan, save }: { plan: Plan; save: (p: Plan) => Pro
           <label class="sf-row__title" for="startw">{t('body.weight')}</label>
           <span class="sf-row__sub">{weight !== undefined ? t('body.weight.measured', { n: nf.format(weight) }) : t('body.weight.start')}</span>
         </span>
-        <input id="startw" class="sf-input sf-input--ui settings-num" inputMode="decimal" value={body.weight ?? ''} placeholder="80"
+        <input id="startw" class="sf-input sf-input--ui settings-num" inputMode="decimal" value={body.weight ?? ''}
           onChange={(e) => set({ weight: numIn(e, 20, 400) })} />
       </div>
       <div class="sf-row">
@@ -83,7 +83,7 @@ export function BodySection({ plan, save }: { plan: Plan; save: (p: Plan) => Pro
           {ACTIVITIES.map((a) => <option value={a}>{t('body.activity.' + a)}</option>)}
         </select>
       </div>
-      <p class="sf-meta" style="padding:8px 16px 12px">
+      <p class="sf-meta body-result">
         {r.ok
           ? t('body.result', {
             bmr: nf.format(r.targets.bmr), tdee: nf.format(r.targets.tdee), kcal: nf.format(r.targets.kcal),
