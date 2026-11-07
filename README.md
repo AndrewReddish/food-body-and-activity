@@ -39,20 +39,19 @@ One-time Supabase setup:
 1. **Database.** In the Supabase SQL editor, run [`supabase/migrations/0001_tilo.sql`](supabase/migrations/0001_tilo.sql)
    (or `supabase db push`). It creates the `profiles`, `plans`, `days` and `measures` tables with row-level
    security (each account sees only its own rows) and a private `photos` storage bucket.
-2. **Sign-in.** Authentication → Sign In / Providers: keep **Email** on. Authentication → Emails → "Magic Link"
-   template: add the code, e.g. `<p>Код: <b>{{ .Token }}</b></p>`, next to the link. The app asks for this
-   code, because on iPhone a link from Mail opens Safari, not the installed app.
-3. **Redirect URLs.** Authentication → URL Configuration: Site URL
-   `https://andrewreddish.github.io/food-body-and-activity/`; also allow
-   `http://localhost:5173/food-body-and-activity/` for development.
+2. **Sign-in.** Authentication → Sign In / Providers → **Email**: on, and **Confirm email: off**. People sign in
+   with email + password; no emails are sent. (Email links can't sign in an app installed on the iPhone home
+   screen: iOS opens them in the browser, which uses up the one-time token there.)
+3. **Site URL.** Authentication → URL Configuration: `https://andrewreddish.github.io/food-body-and-activity/`.
 4. **Build settings.** In this GitHub repo → Settings → Secrets and variables → Actions → **Variables**, add
    `SUPABASE_URL` (Project Settings → API → Project URL) and `SUPABASE_PUBLISHABLE_KEY` (the publishable /
    anon key). Never use the `service_role` key in the app. For local development, copy `.env.example` to
    `.env.local` with the same two values.
 5. **Pages.** Settings → Pages → Source: **GitHub Actions**.
 
-On the phone, the first screen is sign-up / sign-in: enter your email, then the code from the email (the same
-step creates the account the first time). Then the app asks for your name, or, on a new phone with an existing
-account, brings your users from it. The first sign-in on a device uploads everything already logged there.
+On the phone, the first screen is sign-in: email + password, or "Ще немає акаунта? Створити" for a new account.
+Then the app asks for your name, or, on a new phone with an existing account, brings your users from it.
+The first sign-in on a device uploads everything already logged there. Accounts, invite-only mode and resetting
+a forgotten password: [docs/ADMIN.md](docs/ADMIN.md).
 
 App link once deployed: https://andrewreddish.github.io/food-body-and-activity/

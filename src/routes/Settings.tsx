@@ -12,7 +12,7 @@ import { allDays, allMeasures, db, getPlan, patchSettings, putDay, putMeasure, p
 import { foodCsv, parseBackup, shareFile, toBackup, toCsv } from '../storage/export';
 import { getSyncStatus, onSyncStatus, syncNow, type SyncStatus } from '../storage/sync';
 import { pickNewer } from '../storage/merge';
-import { currentUser, isRemoteConfigured, signOut } from '../storage/supabase';
+import { MIN_PASSWORD, authErrorKey, currentUser, isRemoteConfigured, setPassword, signOut } from '../storage/supabase';
 import { SignInForm } from '../components/account';
 import { Button, Icon, IconButton, Segmented, Sheet, TabBar, TextField, Toggle } from '../components/ui';
 import { GroupChip, groupLabel, itemName, newId } from '../components/food';
@@ -203,7 +203,7 @@ export function Settings({ theme, setTheme, setLang, toast }: {
       </main>
       <TabBar active="settings" />
 
-      {sheet === 'account' && <AccountSheet email={email} syncLine={syncLine} onClose={() => setSheet(null)} />}
+      {sheet === 'account' && <AccountSheet email={email} syncLine={syncLine} toast={toast} onClose={() => setSheet(null)} />}
       {sheet === 'dishes' && <DishesSheet plan={plan} save={save} onClose={() => setSheet(null)} />}
       {sheet === 'plan' && (
         <PlanSheet plan={plan} save={save} onClose={() => setSheet(null)}
@@ -214,9 +214,27 @@ export function Settings({ theme, setTheme, setLang, toast }: {
   );
 }
 
-/** Signed in: sync now or sign out. Signed out: the same email-code form as the first screen. */
-function AccountSheet({ email, syncLine, onClose }: { email: string | null; syncLine: string; onClose: () => void }) {
+/** Signed in: sync now, set or change the password, sign out. Signed out: the same form as the first screen. */
+function AccountSheet({ email, syncLine, toast, onClose }: { email: string | null; syncLine: string; toast: (msg: string) => void; onClose: () => void }) {
   const t = useT();
+  const [pw, setPw] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const savePassword = async () => {
+    setBusy(true);
+    setErr('');
+    try {
+      await setPassword(pw);
+      setPw('');
+      sound('saved');
+      toast(t('account.passwordSaved'));
+    } catch (x) {
+      const key = authErrorKey(x);
+      setErr(key ? t(key) : t('account.error', { msg: x instanceof Error ? x.message : String(x) }));
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <Sheet onClose={onClose} labelledBy="account-title">
       {(close) => (<>
@@ -228,8 +246,18 @@ function AccountSheet({ email, syncLine, onClose }: { email: string | null; sync
         {email ? (<>
           <p class="sf-meta">{t('account.signedIn', { email })}</p>
           <p class="sf-meta">{syncLine}</p>
+          <Button block icon="sync" onClick={() => { void syncNow(); close(); }}>{t('settings.syncNow')}</Button>
+          <form class="stack" onSubmit={(e) => { e.preventDefault(); if (pw.length >= MIN_PASSWORD) void savePassword(); }}>
+            <input type="email" name="email" value={email} autoComplete="username" hidden readOnly />
+            <label class="sf-field__label" for="new-password">{t('account.newPassword')}</label>
+            <input id="new-password" name="new-password" type="password" class="sf-input sf-input--ui" value={pw}
+              autoComplete="new-password" autoCapitalize="off" autoCorrect="off" spellcheck={false}
+              onInput={(e) => setPw((e.currentTarget as HTMLInputElement).value)} />
+            <p class="sf-meta">{t('account.passwordRule', { n: MIN_PASSWORD })}</p>
+            {err && <div class="sf-banner" role="alert">{err}</div>}
+            <Button variant="secondary" icon="check" disabled={busy || pw.length < MIN_PASSWORD} onClick={() => void savePassword()}>{t('account.savePassword')}</Button>
+          </form>
           <div class="sf-sheet__actions">
-            <Button block icon="sync" onClick={() => { void syncNow(); close(); }}>{t('settings.syncNow')}</Button>
             <Button variant="ghost" onClick={() => void signOut().then(onClose)}>{t('account.signOut')}</Button>
           </div>
           <p class="sf-meta">{t('account.signOut.hint')}</p>

@@ -180,17 +180,29 @@ describe('remote sync', () => {
 
 describe('supabase settings', () => {
   it('accepts the project URL with or without the API path', async () => {
-    const { projectUrl, linkToken } = await import('../../src/storage/supabase');
+    const { projectUrl } = await import('../../src/storage/supabase');
     expect(projectUrl('https://abc.supabase.co/rest/v1/')).toBe('https://abc.supabase.co');
     expect(projectUrl('https://abc.supabase.co')).toBe('https://abc.supabase.co');
     expect(projectUrl('')).toBeUndefined();
-    expect(linkToken('https://abc.supabase.co/auth/v1/verify?token=6c52c3c63741f2b1c961b94f6a5626522084816d9535cd87d2039fd5&type=magiclink&redirect_to=x')).toEqual({ token_hash: '6c52c3c63741f2b1c961b94f6a5626522084816d9535cd87d2039fd5', type: 'magiclink' });
-    expect(linkToken('https://abc.supabase.co/auth/v1/verify?token=6c52c3c63741f2b1c961b94f6a5626522084816d9535cd87d2039fd5&type=invite&redirect_to=x')).toEqual({ token_hash: '6c52c3c63741f2b1c961b94f6a5626522084816d9535cd87d2039fd5', type: 'invite' });
-    expect(linkToken('123456')).toBeUndefined();
-    // Gmail on iPhone copies its own redirect with the real link encoded inside
-    const real = 'https://abc.supabase.co/auth/v1/verify?token=4884c963095d5fe40e90959778dfa8e69989aa4e92c0e5e22d91d785&type=magiclink&redirect_to=https://x.io/';
-    expect(linkToken('https://www.google.com/url?q=' + encodeURIComponent(real) + '&sa=D&source=gmail')).toEqual({ token_hash: '4884c963095d5fe40e90959778dfa8e69989aa4e92c0e5e22d91d785', type: 'magiclink' });
-    expect(linkToken('  ' + real + '\n')).toEqual({ token_hash: '4884c963095d5fe40e90959778dfa8e69989aa4e92c0e5e22d91d785', type: 'magiclink' });
-    expect(linkToken('4884c963095d5fe40e90959778dfa8e69989aa4e92c0e5e22d91d785')).toEqual({ token_hash: '4884c963095d5fe40e90959778dfa8e69989aa4e92c0e5e22d91d785' });
+  });
+
+  it('maps sign-in errors to friendly messages', async () => {
+    const { authErrorKey } = await import('../../src/storage/supabase');
+    const { RemoteError } = await import('../../src/storage/remote');
+    const cases: [unknown, string | undefined][] = [
+      [new RemoteError('Invalid login credentials', 400, 'invalid_credentials'), 'account.err.credentials'],
+      [new RemoteError('Invalid login credentials', 400), 'account.err.credentials'],
+      [new RemoteError('User already registered', 422, 'user_already_exists'), 'account.err.exists'],
+      [new RemoteError('Password should be at least 6 characters.', 422, 'weak_password'), 'account.err.weak'],
+      [new RemoteError('Signups not allowed for this instance', 422, 'signup_disabled'), 'account.err.signupOff'],
+      [new RemoteError('Unable to validate email address: invalid format', 400, 'validation_failed'), 'account.err.email'],
+      [new RemoteError('New password should be different from the old password.', 422, 'same_password'), 'account.err.same'],
+      [new RemoteError('email confirmation is on', undefined, 'confirm_email_on'), 'account.err.confirmOn'],
+      [new RemoteError('Request rate limit reached', 429, 'over_request_rate_limit'), 'account.err.rate'],
+      [new TypeError('Failed to fetch'), 'account.err.network'],
+      [new TypeError('Load failed'), 'account.err.network'],
+      [new RemoteError('Something odd', 500), undefined],
+    ];
+    for (const [e, key] of cases) expect(authErrorKey(e)).toBe(key);
   });
 });

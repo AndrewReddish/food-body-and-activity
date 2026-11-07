@@ -40,8 +40,9 @@ Built-in menu: `BUILTIN_DISHES`; the user's own dishes and hidden built-ins live
 ## Sync
 - Remote: Supabase, set at build time with `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`
   (`src/storage/supabase.ts`). Schema, RLS and the photo bucket: `supabase/migrations/0001_tilo.sql`.
-- Sign-in: email OTP. The email has a 6-digit code (typed into the app, which works in an installed iPhone app)
-  and a magic link (works in a browser tab). One account per phone owner; the app's users are rows in it.
+- Sign-in: email + password (Supabase Auth, "Confirm email" off, so no emails are sent). Email links were dropped:
+  iOS opens them in the browser, never in a home-screen app, so the one-time token is used up there.
+  One account per phone owner; the app's users are rows in it. Forgotten passwords are reset by the owner (docs/ADMIN.md).
 - Tables `profiles`, `plans`, `days`, `measures`, keyed by `(owner, profile_id, date)`. `data` holds the record
   as the app stores it and is validated with Zod on the way back in.
 - Every local write marks a path dirty (`days/YYYY-MM.json`, `measures/YYYY.json`, `plan.json`,
