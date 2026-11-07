@@ -3,7 +3,7 @@ import type { DayLog, Measure } from '../model/types';
 import { db as defaultDb, getPlan, getSettings, patchSettings, putPlan, PLAN_PATH, daysPath, measuresPath, photoPath, type TiloDB } from './db';
 import { pickNewer } from './merge';
 import { mergeProfiles, ProfileSchema, type Profile } from './profiles';
-import type { RecordKind, RemoteStore } from './remote';
+import type { RecordKind, RemoteGoals, RemoteStore } from './remote';
 
 /**
  * Two-way sync of one app user's data with the remote store.
@@ -48,9 +48,42 @@ async function pushPath(t: SyncTarget, db: TiloDB, path: string): Promise<void> 
 
 /** Push what changed locally (called a few seconds after the last edit). */
 export async function pushDirty(t: SyncTarget, db = defaultDb): Promise<void> {
+  let plan = false;
   for (const { path } of await db.dirty.toArray()) {
     await pushPath(t, db, path);
     await db.dirty.delete(path);
+    plan ||= path === PLAN_PATH;
+  }
+  if (plan) await reconcileGoals(t, db);
+}
+
+const after = (a: string, b: string) => Date.parse(a) > Date.parse(b);
+
+/**
+ * Daily goals (kcal, protein, steps) also live as plain columns in the `goals` table, where the owner can
+ * edit them. Newer change wins: the goals row vs the plan's `goalsUpdatedAt`. Runs after the plan merge,
+ * so a pulled plan carrying older goal values can't override the table.
+ */
+export async function reconcileGoals(t: SyncTarget, db = defaultDb): Promise<void> {
+  const plan = await getPlan(db);
+  const local: RemoteGoals = {
+    kcal: plan.kcalTarget, protein: Math.round(plan.macros?.protein ?? 0), steps: plan.stepsGoal,
+    updatedAt: plan.goalsUpdatedAt ?? EPOCH,
+  };
+  const remote = await t.store.getGoals(t.profile);
+  if (!remote || after(local.updatedAt, remote.updatedAt)) {
+    await t.store.putGoals(t.profile, local);
+    return;
+  }
+  const same = remote.kcal === local.kcal && remote.protein === local.protein && remote.steps === local.steps;
+  if (after(remote.updatedAt, local.updatedAt) || !same) {
+    await putPlan({
+      ...plan,
+      kcalTarget: remote.kcal,
+      stepsGoal: remote.steps,
+      macros: { protein: remote.protein, fat: plan.macros?.fat ?? 0, carbs: plan.macros?.carbs ?? 0 },
+      goalsUpdatedAt: remote.updatedAt,
+    }, { markDirty: false }, db);
   }
 }
 
@@ -106,6 +139,7 @@ export async function pullChanges(t: SyncTarget, db = defaultDb): Promise<void> 
 export async function syncAll(t: SyncTarget, db = defaultDb): Promise<void> {
   await pushDirty(t, db);
   await pullChanges(t, db);
+  await reconcileGoals(t, db);
 }
 
 /** Mark everything on this device for upload — the first time an account is connected here. */

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { TiloDB, getPlan, getSettings, putDay, putMeasure, putPhoto, putPlan } from '../../src/storage/db';
-import { markAllDirty, pullChanges, pushDirty, syncAll, syncProfiles, type SyncTarget } from '../../src/storage/sync-remote';
-import type { RecordKind, RemoteProfile, RemoteRow, RemoteStore } from '../../src/storage/remote';
+import { markAllDirty, pullChanges, pushDirty, reconcileGoals, syncAll, syncProfiles, type SyncTarget } from '../../src/storage/sync-remote';
+import type { RecordKind, RemoteGoals, RemoteProfile, RemoteRow, RemoteStore } from '../../src/storage/remote';
 import { DEFAULT_PROFILE } from '../../src/storage/profiles';
 import { defaultPlan } from '../../src/model/defaults';
 import { day, log, measure } from './fixtures';
@@ -18,6 +18,8 @@ function fakeStore() {
   const tables = new Map<string, Map<string, Row>>();
   const photos = new Map<string, Blob>();
   const profiles = new Map<string, RemoteProfile>();
+  const goals = new Map<string, RemoteGoals>();
+  let goalsTable = true;
   const table = (user: string, kind: string, profile: string) => {
     const k = `${user}/${kind}/${profile}`;
     if (!tables.has(k)) tables.set(k, new Map());
@@ -41,8 +43,18 @@ function fakeStore() {
     async getPhoto(profile, id) { return photos.get(`${user}/${profile}/${id}`); },
     async listProfiles() { return [...profiles.values()].map((p) => ({ ...p })); },
     async putProfiles(list) { for (const p of list) profiles.set(p.id, { ...p }); },
+    async getGoals(profile) { return goalsTable ? structuredClone(goals.get(`${user}/${profile}`)) : undefined; },
+    async putGoals(profile, g) {
+      if (!goalsTable) return;
+      const cur = goals.get(`${user}/${profile}`);
+      if (cur && Date.parse(g.updatedAt) < Date.parse(cur.updatedAt)) return; // like the trigger: newer stays
+      goals.set(`${user}/${profile}`, { ...g });
+    },
   });
-  return { forUser, table, photos, profiles, setClock: (iso: string) => { clock = Date.parse(iso); } };
+  /** What a dashboard edit does: change numbers, stamp now. */
+  const ownerEdit = (user: string, profile: string, g: Omit<RemoteGoals, 'updatedAt'>) =>
+    goals.set(`${user}/${profile}`, { ...g, updatedAt: new Date(clock += 1000).toISOString() });
+  return { forUser, table, photos, profiles, goals, ownerEdit, dropGoalsTable: () => { goalsTable = false; }, setClock: (iso: string) => { clock = Date.parse(iso); } };
 }
 
 let i = 0;
@@ -204,5 +216,64 @@ describe('supabase settings', () => {
       [new RemoteError('Something odd', 500), undefined],
     ];
     for (const [e, key] of cases) expect(authErrorKey(e)).toBe(key);
+  });
+});
+
+describe('goals (kcal, protein, steps) in the goals table', () => {
+  let remote: ReturnType<typeof fakeStore>;
+  let target: SyncTarget;
+  beforeEach(() => {
+    remote = fakeStore();
+    target = { store: remote.forUser('u1'), user: 'u1', profile: 'me' };
+  });
+
+  it('the first sync creates the row, also for the untouched built-in plan', async () => {
+    const db = freshDb();
+    await syncAll(target, db);
+    expect(remote.goals.get('u1/me')).toEqual({ kcal: 2210, protein: 165, steps: 7000, updatedAt: '1970-01-01T00:00:00.000Z' });
+    expect(remote.table('u1', 'plans', 'me').size).toBe(0); // the plan itself still isn't pushed
+  });
+
+  it('an owner edit in the database reaches the app, without touching the plan stamp', async () => {
+    const db = freshDb();
+    await putPlan({ ...defaultPlan(), updatedAt: '2026-11-01T10:00:00Z', goalsUpdatedAt: '2026-11-01T10:00:00Z' }, {}, db);
+    await syncAll(target, db);
+    remote.ownerEdit('u1', 'me', { kcal: 2000, protein: 150, steps: 9000 });
+    await syncAll(target, db);
+    const p = await getPlan(db);
+    expect([p.kcalTarget, p.macros?.protein, p.stepsGoal]).toEqual([2000, 150, 9000]);
+    expect(p.updatedAt).toBe('2026-11-01T10:00:00Z');
+    expect(await db.dirty.count()).toBe(0);
+  });
+
+  it('an edit in the app is pushed to the row', async () => {
+    const db = freshDb();
+    await syncAll(target, db);
+    await putPlan({ ...defaultPlan(), stepsGoal: 8000, updatedAt: '2026-11-07T12:00:00Z', goalsUpdatedAt: '2026-11-07T12:00:00Z' }, {}, db);
+    await pushDirty(target, db);
+    expect(remote.goals.get('u1/me')).toMatchObject({ steps: 8000, updatedAt: '2026-11-07T12:00:00Z' });
+  });
+
+  it('a pulled plan with older goal values does not override a newer owner edit', async () => {
+    const phoneA = freshDb();
+    // Phone A edits the groups (plan pushed) while still carrying the old goals.
+    await putPlan({ ...defaultPlan(), kcalTarget: 2210, updatedAt: '2026-11-07T12:00:00Z', goalsUpdatedAt: '2026-11-01T00:00:00Z' }, {}, phoneA);
+    remote.ownerEdit('u1', 'me', { kcal: 1900, protein: 140, steps: 10000 });
+    await pushDirty(target, phoneA);
+    const phoneB = freshDb();
+    await syncAll(target, phoneB);
+    const p = await getPlan(phoneB);
+    expect([p.kcalTarget, p.macros?.protein, p.stepsGoal]).toEqual([1900, 140, 10000]);
+    expect(remote.goals.get('u1/me')!.kcal).toBe(1900);
+  });
+
+  it('keeps syncing when the goals table is not there yet', async () => {
+    remote.dropGoalsTable();
+    const db = freshDb();
+    await putDay(day('2026-11-02', '2026-11-02T21:00:00Z', { steps: 1234 }), db);
+    await syncAll(target, db);
+    expect(remote.table('u1', 'days', 'me').size).toBe(1);
+    expect((await getPlan(db)).kcalTarget).toBe(2210);
+    await reconcileGoals(target, db);
   });
 });

@@ -37,8 +37,10 @@ sign in, synced to a Supabase project. Without Supabase settings the app works l
 
 One-time Supabase setup:
 1. **Database.** In the Supabase SQL editor, run [`supabase/migrations/0001_tilo.sql`](supabase/migrations/0001_tilo.sql)
-   (or `supabase db push`). It creates the `profiles`, `plans`, `days` and `measures` tables with row-level
-   security (each account sees only its own rows) and a private `photos` storage bucket.
+   and then [`0002_goals.sql`](supabase/migrations/0002_goals.sql) (or `supabase db push`). They create the
+   `profiles`, `plans`, `days`, `measures` and `goals` tables with row-level security (each account sees only its
+   own rows), a private `photos` storage bucket, and an owner-only `admin.goals_overview`. Daily goals (kcal,
+   protein, steps) are editable in Table Editor → `goals`; see [docs/ADMIN.md](docs/ADMIN.md).
 2. **Sign-in.** Authentication → Sign In / Providers → **Email**: on, and **Confirm email: off**. People sign in
    with email + password; no emails are sent. (Email links can't sign in an app installed on the iPhone home
    screen: iOS opens them in the browser, which uses up the one-time token there.)

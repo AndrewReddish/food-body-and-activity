@@ -52,6 +52,10 @@ Built-in menu: `BUILTIN_DISHES`; the user's own dishes and hidden built-ins live
 - Pulls are incremental: the server stamps `synced_at` on every accepted write; each device keeps a cursor per
   account (re-reading a 2-minute margin before it).
 - The built-in plan is never pushed until it's edited (stamped at the epoch).
+- Daily goals (kcal, protein, steps) are mirrored as plain columns in `goals` (migration 0002) so the owner can edit
+  them in the dashboard. `reconcileGoals` runs after the plan merge: newer of the row's `updated_at` and the plan's
+  `goalsUpdatedAt` wins. A dashboard edit that leaves `updated_at` alone is stamped `now()` by the trigger.
+  Without the table, goals just aren't mirrored.
 - Photos are uploaded once (immutable) to `photos/<uid>/<profile>/<id>.jpg` and downloaded when a measurement
   references one this device lacks.
 - The first sign-in of an account on a device marks everything local as dirty and uploads it, for every user.
