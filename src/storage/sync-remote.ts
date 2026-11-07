@@ -68,9 +68,10 @@ const after = (a: string, b: string) => Date.parse(a) > Date.parse(b);
  */
 export async function reconcileGoals(t: SyncTarget, db = defaultDb): Promise<void> {
   const plan = await getPlan(db);
+  const localBody = normBody(plan.body);
   const local: RemoteGoals = {
     kcal: plan.kcalTarget, protein: Math.round(plan.macros?.protein ?? 0), steps: plan.stepsGoal,
-    body: normBody(plan.body),
+    body: localBody,
     updatedAt: plan.goalsUpdatedAt ?? EPOCH,
   };
   const remote = await t.store.getGoals(t.profile);
@@ -78,9 +79,9 @@ export async function reconcileGoals(t: SyncTarget, db = defaultDb): Promise<voi
     await t.store.putGoals(t.profile, local);
     return;
   }
-  // No body columns on the server (0003 not run): it can't hold the body, so ours is kept, not cleared.
-  const localBody = normBody(plan.body);
-  const remoteBody = remote.body === undefined ? localBody : normBody(remote.body ?? undefined);
+  // An empty body on the server never clears ours: either the table has no body columns (0003 not run,
+  // body undefined) or they were just added and are still empty (null). Only a filled-in body is taken.
+  const remoteBody = remote.body ? normBody(remote.body) : localBody;
   const same = remote.kcal === local.kcal && remote.protein === local.protein && remote.steps === local.steps && sameBody(remoteBody, localBody);
   if (after(remote.updatedAt, local.updatedAt) || !same) {
     await putPlan({
@@ -91,6 +92,10 @@ export async function reconcileGoals(t: SyncTarget, db = defaultDb): Promise<voi
       body: remoteBody,
       goalsUpdatedAt: remote.updatedAt,
     }, { markDirty: false }, db);
+  }
+  // Empty body columns and a body here: fill them in (the server's numbers, our body).
+  if (remote.body === null && localBody) {
+    await t.store.putGoals(t.profile, { kcal: remote.kcal, protein: remote.protein, steps: remote.steps, body: localBody, updatedAt: remote.updatedAt });
   }
 }
 

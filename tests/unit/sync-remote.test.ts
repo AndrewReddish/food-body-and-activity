@@ -64,7 +64,7 @@ function fakeStore() {
   /** What a dashboard edit does: change numbers, stamp now. */
   const ownerEdit = (user: string, profile: string, g: Omit<RemoteGoals, 'updatedAt'>) =>
     goals.set(`${user}/${profile}`, { ...g, updatedAt: new Date(clock += 1000).toISOString() });
-  return { forUser, table, photos, profiles, goals, ownerEdit, dropGoalsTable: () => { goalsTable = false; }, dropBodyColumns: () => { bodyColumns = false; }, setFormula: (f: Record<string, unknown>) => { formula = f; }, setClock: (iso: string) => { clock = Date.parse(iso); } };
+  return { forUser, table, photos, profiles, goals, ownerEdit, dropGoalsTable: () => { goalsTable = false; }, dropBodyColumns: () => { bodyColumns = false; }, addBodyColumns: () => { bodyColumns = true; }, setFormula: (f: Record<string, unknown>) => { formula = f; }, setClock: (iso: string) => { clock = Date.parse(iso); } };
 }
 
 let i = 0;
@@ -354,5 +354,20 @@ describe('automatic targets', () => {
     await syncAll(target, db);
     expect((await getPlan(db)).body).toMatchObject({ height: 165, auto: true });
     expect(remote.goals.get('u1/w')!.body).toMatchObject({ height: 165 });
+  });
+
+  it('running 0003 later (empty body columns, same stamp) fills them from the app instead of clearing the app', async () => {
+    remote.dropBodyColumns();
+    const db = freshDb();
+    await syncAll(target, db);
+    const p = await getPlan(db);
+    const stamp = new Date().toISOString();
+    await putPlan({ ...p, body, goalsUpdatedAt: stamp, updatedAt: stamp }, {}, db);
+    await syncAll(target, db);
+    remote.addBodyColumns(); // the owner runs 0003: columns appear, all empty; updated_at unchanged
+    await syncAll(target, db);
+    await syncAll(target, db);
+    expect((await getPlan(db)).body).toMatchObject({ height: 165, auto: true });
+    expect(remote.goals.get('u1/w')!.body).toMatchObject({ height: 165, sex: 'f' });
   });
 });
