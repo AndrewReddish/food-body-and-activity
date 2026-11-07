@@ -15,8 +15,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icons/apple-touch-icon.png', 'app-icon.svg', 'icons.svg', 'illustrations/*.svg'],
       manifest: {
-        name: 'Тіло · Body',
-        short_name: 'Тіло',
+        name: 'Tonus',
+        short_name: 'Tonus',
         description: 'Раціон, кроки, заміри · Ration, steps, measurements',
         lang: 'uk',
         start_url: base + '#/today',

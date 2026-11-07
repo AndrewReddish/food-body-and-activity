@@ -2,12 +2,13 @@ import Dexie, { type Table } from 'dexie';
 import { z } from 'zod';
 
 /**
- * Users ("profiles") on this device. Each profile has its own IndexedDB database,
- * so logs never mix. Same profile ids and `profiles.json` as «Сфери», so one person is one user in both apps.
+ * Users ("profiles") on this device. Each profile has its own IndexedDB database, so logs never mix.
+ * The list itself syncs to the signed-in account (`profiles` table).
  */
 export const ProfileSchema = z.object({
   id: z.string().regex(/^[a-z0-9-]{1,40}$/),
-  name: z.string().min(1).max(40),
+  /** Empty only for the first user until they type their name on first launch. */
+  name: z.string().max(40),
   color: z.string().min(1).max(40), // palette id from tokens.css
   createdAt: z.string(),
   updatedAt: z.string(),
@@ -19,18 +20,15 @@ export const ProfilesFileSchema = z.object({ profiles: z.array(ProfileSchema) })
 export const DEFAULT_PROFILE_ID = 'me';
 export const DEFAULT_PROFILE: Profile = {
   id: DEFAULT_PROFILE_ID,
-  name: 'Андрій',
+  name: '',
   color: 'home',
   createdAt: '1970-01-01T00:00:00.000Z',
   updatedAt: '1970-01-01T00:00:00.000Z',
 };
 
 export const dbNameFor = (id: string) => (id === DEFAULT_PROFILE_ID ? 'tilo' : `tilo-${id}`);
-/**
- * Folder in the data repo shared with «Сфери»: the mood app owns the root (and users/<id>/),
- * this app writes only under food/ inside the same user's folder.
- */
-export const syncPrefixFor = (id: string) => (id === DEFAULT_PROFILE_ID ? 'food/' : `users/${id}/food/`);
+/** Inverse of dbNameFor: which user a database belongs to. */
+export const profileIdFor = (dbName: string) => (dbName === 'tilo' ? DEFAULT_PROFILE_ID : dbName.replace(/^tilo-/, ''));
 
 interface KV {
   key: string;
@@ -93,29 +91,8 @@ export function mergeProfiles(local: Profile[], remote: Profile[]): Profile[] {
   const byId = new Map(local.map((p) => [p.id, p]));
   for (const r of remote) {
     const l = byId.get(r.id);
-    if (!l || Date.parse(r.updatedAt) > Date.parse(l.updatedAt)) byId.set(r.id, r);
+    // A name from the account beats the unnamed first user of a fresh install.
+    if (!l || Date.parse(r.updatedAt) > Date.parse(l.updatedAt) || (!l.name && r.name)) byId.set(r.id, r);
   }
   return [...byId.values()];
-}
-
-/**
- * «Сфери» runs on the same origin (andrewreddish.github.io), so its users can be read straight
- * from its IndexedDB on first launch. Read-only; never writes to the mood app's databases.
- */
-export async function importMoodProfiles(m = meta): Promise<void> {
-  try {
-    if (!(await Dexie.exists('spheres-meta'))) return;
-    const mood = new Dexie('spheres-meta');
-    await mood.open();
-    const rows = mood.tables.some((t) => t.name === 'profiles') ? await mood.table('profiles').toArray() : [];
-    mood.close();
-    const local = await listProfiles(m);
-    const merged = mergeProfiles(local, rows.flatMap((r) => {
-      const p = ProfileSchema.safeParse(r);
-      return p.success ? [p.data] : [];
-    }));
-    await m.profiles.bulkPut(merged);
-  } catch {
-    // The mood app isn't installed here, or its database is busy — nothing to import.
-  }
 }

@@ -48,7 +48,7 @@ export function ProfileList({ picked, onPick, size = 36 }: { picked: string; onP
       {profiles.map((p) => (
         <button type="button" role="radio" aria-checked={p.id === picked} class="sf-row sf-row--tall" onClick={() => onPick(p.id)}>
           <Avatar profile={p} size={size} />
-          <span class="sf-row__title" style="flex:1">{p.name}</span>
+          <span class="sf-row__title" style="flex:1">{p.name || t('profiles.unnamed')}</span>
           {p.id === picked && <span style="color:var(--accent-ink)"><Icon name="check" size={22} /></span>}
         </button>
       ))}
@@ -88,6 +88,32 @@ export function ProfilePicker({ onDone }: { onDone: (id: string) => void }) {
       <ProfileList picked={picked} onPick={setPicked} size={40} />
       <AddProfileForm />
       <Button block iconEnd="chevron-right" onClick={() => onDone(picked)}>{t('profiles.continue')}</Button>
+    </main>
+  );
+}
+
+/** First launch, first user: the app has no default name, so it asks. */
+export function NameStep({ onDone }: { onDone: (name: string) => void | Promise<void> }) {
+  const t = useT();
+  const [name, setName] = useState('');
+  const submit = (e: Event) => {
+    e.preventDefault();
+    if (name.trim()) void onDone(name.trim());
+  };
+  return (
+    <main class="screen" style="padding-top:calc(48px + var(--safe-top))">
+      <div class="screen__head">
+        <h1 class="sf-title">{t('name.title')}</h1>
+        <p class="sf-meta">{t('name.hint')}</p>
+      </div>
+      <form class="stack" onSubmit={submit}>
+        <input
+          class="sf-input sf-input--ui" aria-label={t('profiles.name')} placeholder={t('name.placeholder')}
+          value={name} maxLength={40} enterKeyHint="done" autoComplete="given-name" autoFocus
+          onInput={(e) => setName((e.currentTarget as HTMLInputElement).value)}
+        />
+        <Button block iconEnd="chevron-right" disabled={!name.trim()} onClick={submit}>{t('profiles.continue')}</Button>
+      </form>
     </main>
   );
 }

@@ -8,18 +8,17 @@ import { DishesSheet } from '../components/dishEditor';
 import { useLang, useT, locale, type Lang } from '../i18n/t';
 import { usePlan } from '../lib/usePlan';
 import { nowIso, todayKey } from '../lib/dates';
-import { allDays, allMeasures, db, getPlan, getSettings, patchSettings, putDay, putMeasure, putPlan, type LocalSettings } from '../storage/db';
+import { allDays, allMeasures, db, getPlan, patchSettings, putDay, putMeasure, putPlan, type LocalSettings } from '../storage/db';
 import { foodCsv, parseBackup, shareFile, toBackup, toCsv } from '../storage/export';
 import { getSyncStatus, onSyncStatus, syncNow, type SyncStatus } from '../storage/sync';
-import { GitHubClient } from '../storage/sync-github';
 import { pickNewer } from '../storage/merge';
-import { readMoodSettings } from '../storage/session';
+import { currentUser, isRemoteConfigured, signOut } from '../storage/supabase';
+import { SignInForm } from '../components/account';
 import { Button, Icon, IconButton, Segmented, Sheet, TabBar, TextField, Toggle } from '../components/ui';
 import { GroupChip, groupLabel, itemName, newId } from '../components/food';
 import { AddProfileForm, ProfileList } from '../components/profiles';
 import { useProfiles } from '../lib/profile';
 import { isSoundEnabled, setSoundEnabled, sound } from '../lib/sound';
-import { syncPrefixFor } from '../storage/profiles';
 
 type Theme = LocalSettings['theme'];
 
@@ -30,15 +29,15 @@ export function Settings({ theme, setTheme, setLang, toast }: {
   const lang = useLang();
   const { plan, groups, items, save } = usePlan();
   const [status, setStatus] = useState<SyncStatus>(getSyncStatus());
-  const [settings, setSettings] = useState<LocalSettings | null>(null);
-  const [sheet, setSheet] = useState<'token' | 'plan' | 'dishes' | null>(null);
+  const [sheet, setSheet] = useState<'account' | 'plan' | 'dishes' | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const planRef = useRef<HTMLInputElement>(null);
   const { active, switchTo, rename } = useProfiles();
   const [soundOn, setSoundOn] = useState(isSoundEnabled());
 
   useEffect(() => onSyncStatus(setStatus), []);
-  useEffect(() => void getSettings().then(setSettings), [status, sheet]);
+  useEffect(() => void currentUser().then((u) => setEmail(u?.email ?? null)), [status, sheet]);
 
   const time = (iso?: string) => (iso ? new Intl.DateTimeFormat(locale(lang), { hour: '2-digit', minute: '2-digit' }).format(new Date(iso)) : '');
   const syncLine =
@@ -50,15 +49,15 @@ export function Settings({ theme, setTheme, setLang, toast }: {
 
   const exportCsv = async () => {
     const [days, measures, p] = await Promise.all([allDays(), allMeasures(), getPlan()]);
-    await shareFile(`tilo-${todayKey()}.csv`, 'text/csv', toCsv(days, measures, p));
+    await shareFile(`tonus-${todayKey()}.csv`, 'text/csv', toCsv(days, measures, p));
   };
   const exportFood = async () => {
     const [days, p] = await Promise.all([allDays(), getPlan()]);
-    await shareFile(`tilo-food-${todayKey()}.csv`, 'text/csv', foodCsv(days, p));
+    await shareFile(`tonus-food-${todayKey()}.csv`, 'text/csv', foodCsv(days, p));
   };
   const exportJson = async () => {
     const [days, measures, p] = await Promise.all([allDays(), allMeasures(), getPlan()]);
-    await shareFile(`tilo-backup-${todayKey()}.json`, 'application/json', JSON.stringify(toBackup(p, days, measures, nowIso()), null, 2));
+    await shareFile(`tonus-backup-${todayKey()}.json`, 'application/json', JSON.stringify(toBackup(p, days, measures, nowIso()), null, 2));
   };
   const restore = async (file: File) => {
     try {
@@ -169,14 +168,16 @@ export function Settings({ theme, setTheme, setLang, toast }: {
 
         <h2 class="sf-section">{t('settings.syncData')}</h2>
         <div class="sf-list">
-          <button type="button" class="sf-row sf-row--tall" onClick={() => setSheet('token')}>
-            <Icon name="key" size={22} />
-            <span class="sf-row__main">
-              <span class="sf-row__title">{t('settings.token')}</span>
-              <span class="sf-row__sub">{status.state === 'idle' && <Icon name="check" size={14} />}{syncLine}</span>
-            </span>
-            <span class="sf-row__end">{settings?.token ? `•••• ${settings.token.slice(-4)}` : ''}</span>
-          </button>
+          {isRemoteConfigured() && (
+            <button type="button" class="sf-row sf-row--tall" onClick={() => setSheet('account')}>
+              <Icon name="key" size={22} />
+              <span class="sf-row__main">
+                <span class="sf-row__title">{email ?? t('settings.account')}</span>
+                <span class="sf-row__sub">{status.state === 'idle' && <Icon name="check" size={14} />}{syncLine}</span>
+              </span>
+              <Icon name="chevron-right" size={20} class="sf-row__chev" />
+            </button>
+          )}
           <button type="button" class="sf-row" onClick={exportCsv}>
             <Icon name="download" size={22} /><span class="sf-row__title" style="flex:1">{t('settings.csv')}</span>
             <Icon name="chevron-right" size={20} class="sf-row__chev" />
@@ -202,77 +203,40 @@ export function Settings({ theme, setTheme, setLang, toast }: {
       </main>
       <TabBar active="settings" />
 
-      {sheet === 'token' && settings && <TokenSheet settings={settings} onClose={() => setSheet(null)} />}
+      {sheet === 'account' && <AccountSheet email={email} syncLine={syncLine} onClose={() => setSheet(null)} />}
       {sheet === 'dishes' && <DishesSheet plan={plan} save={save} onClose={() => setSheet(null)} />}
       {sheet === 'plan' && (
         <PlanSheet plan={plan} save={save} onClose={() => setSheet(null)}
-          onExport={() => void shareFile(`tilo-plan-${todayKey()}.json`, 'application/json', JSON.stringify(plan, null, 2))}
+          onExport={() => void shareFile(`tonus-plan-${todayKey()}.json`, 'application/json', JSON.stringify(plan, null, 2))}
           onImport={() => planRef.current?.click()} />
       )}
     </>
   );
 }
 
-function TokenSheet({ settings, onClose }: { settings: LocalSettings; onClose: () => void }) {
+/** Signed in: sync now or sign out. Signed out: the same email-code form as the first screen. */
+function AccountSheet({ email, syncLine, onClose }: { email: string | null; syncLine: string; onClose: () => void }) {
   const t = useT();
-  const { active } = useProfiles();
-  const [repo, setRepo] = useState(settings.repo ?? '');
-  const [token, setToken] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState('');
-  const [mood, setMood] = useState<{ repo: string; token: string } | null>(null);
-  const connected = !!(settings.repo && settings.token);
-  useEffect(() => void readMoodSettings().then((m) => m?.repo && m.token && setMood({ repo: m.repo, token: m.token })), []);
-
-  const connect = async (target = { repo: repo.trim(), token: token.trim() || settings.token || '' }) => {
-    setBusy(true);
-    setErr('');
-    const full = { ...target, prefix: syncPrefixFor(active.id) };
-    try {
-      await new GitHubClient(full).ping();
-      await patchSettings(full);
-      void syncNow();
-      onClose();
-    } catch (e) {
-      setErr(t('settings.syncError', { msg: (e as { status?: number }).status ? String((e as { status?: number }).status) : 'network' }));
-    } finally {
-      setBusy(false);
-    }
-  };
-  const disconnect = async () => {
-    await patchSettings({ token: undefined, repo: undefined, lastSyncAt: undefined });
-    await syncNow();
-    onClose();
-  };
-
   return (
-    <Sheet onClose={onClose} labelledBy="token-title">
+    <Sheet onClose={onClose} labelledBy="account-title">
       {(close) => (<>
         <div class="sf-sheet__head">
           <span class="sf-dchip sf-dchip--lg" style="background:var(--accent-soft);color:var(--accent-ink)"><Icon name="key" size={22} /></span>
-          <h2 class="sf-h2" id="token-title" style="flex:1">{t('settings.token')}</h2>
+          <h2 class="sf-h2" id="account-title" style="flex:1">{t('settings.account')}</h2>
           <IconButton icon="close" label={t('common.close')} tone="sunk" size={22} onClick={close} />
         </div>
-        {mood && !connected && (
-          <button type="button" class="sf-card more-card sf-press" disabled={busy} onClick={() => void connect(mood)}>
-            <span class="sf-dchip" style="background:var(--accent-soft);color:var(--accent-ink)"><Icon name="sync" size={22} /></span>
-            <span style="flex:1;display:grid;gap:2px">
-              <span class="sf-label">{t('settings.useMood')}</span>
-              <span class="sf-meta">{mood.repo}</span>
-            </span>
-          </button>
-        )}
-        <TextField id="repo" ui label={t('settings.repo')} placeholder={t('settings.repo.placeholder')} value={repo} onInput={setRepo} />
-        <TextField id="token" ui label={t('settings.token')} placeholder={connected ? `•••• ${settings.token!.slice(-4)}` : t('settings.token.placeholder')} value={token} onInput={setToken} />
-        <p class="sf-meta">{t('settings.token.hint')}</p>
-        <p class="sf-meta">{t('settings.folder', { folder: syncPrefixFor(active.id) })}</p>
-        {err && <div class="sf-banner" role="alert">{err}</div>}
-        <div class="sf-sheet__actions">
-          <Button block icon="sync" disabled={busy || !/^[\w.-]+\/[\w.-]+$/.test(repo.trim()) || !(token.trim() || settings.token)} onClick={() => void connect()}>
-            {connected ? t('settings.syncNow') : t('settings.connect')}
-          </Button>
-          {connected && <Button variant="ghost" onClick={disconnect}>{t('settings.disconnect')}</Button>}
-        </div>
+        {email ? (<>
+          <p class="sf-meta">{t('account.signedIn', { email })}</p>
+          <p class="sf-meta">{syncLine}</p>
+          <div class="sf-sheet__actions">
+            <Button block icon="sync" onClick={() => { void syncNow(); close(); }}>{t('settings.syncNow')}</Button>
+            <Button variant="ghost" onClick={() => void signOut().then(onClose)}>{t('account.signOut')}</Button>
+          </div>
+          <p class="sf-meta">{t('account.signOut.hint')}</p>
+        </>) : (<>
+          <p class="sf-meta">{t('account.hint')}</p>
+          <SignInForm onSignedIn={() => { void syncNow(); onClose(); }} />
+        </>)}
       </>)}
     </Sheet>
   );

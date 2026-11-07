@@ -1,9 +1,9 @@
 /**
- * Records the «Тіло» feature showcase with synthetic data: 1920×1080, chapter text on the left,
+ * Records the Tonus feature showcase with synthetic data: 1920×1080, chapter text on the left,
  * the live app in a phone frame on the right (scripts/demo/stage.html).
  *
  *   npm run dev                       # in another terminal (http://localhost:5173/food-body-and-activity/)
- *   npm run demo                      # → demo/tilo-showcase.mp4
+ *   npm run demo                      # → demo/tonus-showcase.mp4
  *
  * Needs Playwright (with Chromium) and ffmpeg. Data comes from scripts/demo/seed.ts and lives only in the
  * recording browser's throwaway profile.
@@ -18,12 +18,12 @@ const { chromium } = createRequire(import.meta.url)('playwright');
 const BASE = process.env.DEMO_URL ?? 'http://localhost:5173/food-body-and-activity/';
 const STAGE = BASE + 'scripts/demo/stage.html';
 const OUT = join(process.cwd(), 'demo');
-const FILE = join(OUT, 'tilo-showcase.mp4');
+const FILE = join(OUT, 'tonus-showcase.mp4');
 const FOOT = 'Демо-дані · 4 тижні записів';
 
 async function main() {
   mkdirSync(OUT, { recursive: true });
-  const tmp = mkdtempSync(join(tmpdir(), 'tilo-demo-'));
+  const tmp = mkdtempSync(join(tmpdir(), 'tonus-demo-'));
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1, locale: 'uk-UA', timezoneId: 'Europe/Kyiv' });
   const page = await ctx.newPage();
@@ -153,7 +153,7 @@ async function main() {
 
   // 07 Settings
   await tab('Опції');
-  await chapter({ pill: '07 · Опції', title: 'Ваш план, ваші дані', uk: 'План тренера можна змінити. Кілька людей на одному телефоні, синхронізація в приватний GitHub, експорт у CSV і JSON.', en: 'Edit the plan, add people, sync to a private GitHub repo, export anytime.' });
+  await chapter({ pill: '07 · Опції', title: 'Ваш план, ваші дані', uk: 'План тренера можна змінити. Кілька людей на одному телефоні, синхронізація з вашим акаунтом, експорт у CSV і JSON.', en: 'Edit the plan, add people, sync to your account, export anytime.' });
   await wait(2600);
   await scroll(620, 2200);
   await wait(800);
@@ -162,7 +162,7 @@ async function main() {
   await tab('Головна');
 
   // Outro (dark theme)
-  await chapter({ cover: true, title: 'Тіло · Body', uk: 'Офлайн-PWA на iPhone · синхронізація в приватний GitHub · кілька користувачів.', en: 'Offline PWA for iPhone · private GitHub sync · several users on one device.', foot: '' });
+  await chapter({ cover: true, title: 'Tonus', uk: 'Офлайн-PWA на iPhone · синхронізація з акаунтом · кілька користувачів.', en: 'Offline PWA for iPhone · account sync · several users on one device.', foot: '' });
   await wait(4500);
 
   await cdp.send('Page.stopScreencast');

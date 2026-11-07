@@ -1,5 +1,5 @@
 {
-  "name": "tilo",
+  "name": "tonus",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -12,6 +12,7 @@
     "demo": "node scripts/demo/record.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.119.0",
     "dexie": "^4.4.7",
     "preact": "^10.29.8",
     "zod": "^4.6.7"

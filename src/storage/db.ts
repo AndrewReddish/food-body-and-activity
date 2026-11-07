@@ -27,6 +27,7 @@ export class TiloDB extends Dexie {
   kv!: Table<KV, string>;
   dirty!: Table<Dirty, string>;
 
+  // Database names keep the app's first name ('tilo') so existing data stays where it is.
   constructor(name = 'tilo') {
     super(name);
     this.version(1).stores({
@@ -120,23 +121,25 @@ export async function putPlan(plan: Plan, opts: { markDirty?: boolean } = {}, d 
 export interface LocalSettings {
   lang: 'uk' | 'en';
   theme: 'system' | 'light' | 'dark';
-  repo?: string; // "owner/name" of the PRIVATE data repo (shared with «Сфери»)
-  token?: string; // fine-grained PAT, only ever sent to api.github.com
-  prefix?: string; // folder in the data repo: 'food/' for the first user, 'users/<id>/food/' for others
   installHintSeen?: boolean;
   lastSyncAt?: string;
+  /** Server time of the newest record pulled, per signed-in account (incremental pulls). */
+  pullCursor?: { user: string; at: string };
   sound?: boolean;
-  /** «Сфери»'s connection/language/theme were offered once (first launch only). */
-  moodChecked?: boolean;
   /** Last weighing method per item, so "cooked" sticks for meat. */
   lastMethod?: Record<string, string>;
 }
 
 const DEFAULT_SETTINGS: LocalSettings = { lang: 'uk', theme: 'system' };
 
+/** Keys from the old GitHub sync; dropped on the next settings write (the token never lingers). */
+const LEGACY_KEYS = ['repo', 'token', 'prefix', 'moodChecked'];
+
 export async function getSettings(d = db): Promise<LocalSettings> {
   const row = await d.kv.get('settings');
-  return { ...DEFAULT_SETTINGS, ...(row?.value as Partial<LocalSettings> | undefined) };
+  const stored = { ...(row?.value as Record<string, unknown> | undefined) };
+  for (const k of LEGACY_KEYS) delete stored[k];
+  return { ...DEFAULT_SETTINGS, ...(stored as Partial<LocalSettings>) };
 }
 
 export async function patchSettings(patch: Partial<LocalSettings>, d = db): Promise<LocalSettings> {
