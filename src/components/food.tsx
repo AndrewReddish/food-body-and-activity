@@ -22,7 +22,8 @@ export function Ring({ value, size = 64, stroke = 7, children, label }: {
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
   const main = Math.min(1, Math.max(0, value));
-  const over = Math.min(1, Math.max(0, value - 1));
+  // Over shows from 100.5%, like the group status: 40% + 60% can add up to 100.0x% from rounding.
+  const over = value > 1.005 ? Math.min(1, value - 1) : 0;
   return (
     <span class={'sf-ring' + (value >= DONE_AT ? ' is-full' : '')} style={`width:${size}px;height:${size}px`} role={label ? 'img' : undefined} aria-label={label}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">

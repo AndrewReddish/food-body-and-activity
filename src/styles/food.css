@@ -9,7 +9,7 @@
 
 /* ring */
 .sf-ring { position: relative; flex: none; display: grid; place-items: center; }
-.sf-ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+.sf-ring > svg { position: absolute; inset: 0; transform: rotate(-90deg); }
 .sf-ring circle { fill: none; stroke-linecap: round; }
 .sf-ring__track { stroke: var(--bg-sunk); }
 .sf-ring__arc { stroke: var(--c, var(--accent)); transition: stroke-dashoffset var(--dur-3) var(--ease); }
